@@ -81,7 +81,7 @@ func _counter(parent: Control, kind: String, color: Color) -> Label:
 	sb.content_margin_right = 8
 	p.add_theme_stylebox_override("panel", sb)
 	var h := UI.hbox(4)
-	h.add_child(UI.label("◆" if kind == "石" else "✦", 12, color))
+	h.add_child(UI.label("◆", 12, color))
 	var l := UI.label("0", 13, Color.WHITE)
 	h.add_child(l)
 	p.add_child(h)
@@ -123,10 +123,11 @@ func show_toast(text: String) -> void:
 
 func _make_theme() -> Theme:
 	var t := Theme.new()
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Yu Gothic UI", "Meiryo UI", "Meiryo", "Hiragino Sans",
-		"Hiragino Kaku Gothic ProN", "Noto Sans CJK JP", "Noto Sans JP", "Droid Sans Japanese", "sans-serif"])
-	f.font_weight = 700
+	# Webでも日本語が出るようにフォントを同梱。足りない字はOSのフォントで補う
+	var f: FontFile = load("res://assets/fonts/MPLUSRounded1c-Bold.ttf")
+	var sys := SystemFont.new()
+	sys.font_names = PackedStringArray(["Yu Gothic UI", "Meiryo", "Hiragino Sans", "Noto Sans CJK JP", "sans-serif"])
+	f.fallbacks = [sys]
 	t.default_font = f
 	t.default_font_size = 14
 	t.set_color("font_color", "Label", UI.INK)
