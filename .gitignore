@@ -1,0 +1,12 @@
+# Godot
+.godot/
+export_credentials.cfg
+
+# 書き出し物
+build/
+*.apk
+*.aab
+*.keystore
+
+# 開発用スクリーンショット
+tools/shots/
