@@ -27,8 +27,20 @@ func _ready() -> void:
 	await _drag(ts, 6, Vector2(pr.end.x - 20, pr.get_center().y))
 	print("remove: in_team(6)=", Game.in_team(6), " team size=", Game.save.formation.size())
 
+	# 3b) 待たずに押したまま動かす → すぐ持ち上がる（カピバラをウサギと入れ替え）
+	var fp: Vector2 = ts._cards[4].get_global_rect().get_center()
+	var tp: Vector2 = ts._cards[5].get_global_rect().get_center()
+	_mouse(fp, true)
+	for i in 10:
+		_move(fp.lerp(tp, (i + 1) / 10.0))
+		await get_tree().process_frame
+	print("  lifted by moving: ", not ts._drag.is_empty())
+	_mouse(tp, false)
+	await _frames()
+	print("move-lift swap: GK=", Game.row_ids("GK"), " 攻=", Game.row_ids("攻"))
+
 	# 4) 短いタップ → 詳細が開く（持ち上がらない）
-	var p: Vector2 = ts._cards[5].get_global_rect().get_center()
+	var p: Vector2 = ts._cards[9].get_global_rect().get_center()
 	_mouse(p, true)
 	_mouse(p, false)
 	await _frames()
@@ -40,7 +52,7 @@ func _ready() -> void:
 func _drag(ts, id: int, to: Vector2) -> void:
 	var from: Vector2 = ts._cards[id].get_global_rect().get_center()
 	_mouse(from, true)
-	await get_tree().create_timer(0.55).timeout
+	await get_tree().create_timer(0.3).timeout
 	print("  lifted ", Game.chars[id].name, ": ", not ts._drag.is_empty())
 	for i in 10:
 		_move(from.lerp(to, (i + 1) / 10.0))

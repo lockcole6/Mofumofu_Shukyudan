@@ -2,12 +2,13 @@ extends VBoxContainer
 ## 編成：列（攻・中・守・GK）ごとに選手を並べる。人数に合わせて自動で中央にそろう。
 ## GKは1人、ほかの列は最大4人、合計7人。
 ## 操作：タップで詳細、＋で追加、
-##       長押しでカードを持ち上げて運ぶ（別の列へ移動・選手の上で入れ替え・右端の「外す」で編成から外す）。
+##       少し長押し（または押したまま動かす）でカードを持ち上げて運ぶ（別の列へ移動・選手の上で入れ替え・右端の「外す」で編成から外す）。
 
 const UI = preload("res://scripts/ui/UI.gd")
 const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 const CARD_W := 64
 const REMOVE_W := 64
+const LIFT_TIME := 0.25
 
 var view := "ピッチ"   # ピッチ / スキル
 var _cards := {}       # 選手id -> ピッチ上のカード
@@ -65,7 +66,7 @@ func build() -> void:
 		for n in pw.mods.combos:
 			info.add_child(UI.tag(n, UI.PINK, 9, false))
 	else:
-		info.add_child(UI.label("タップで詳細 ／ 長押しで持ち上げて移動", 10, UI.DIM))
+		info.add_child(UI.label("タップで詳細 ／ 押したまま動かして移動", 10, UI.DIM))
 	ih.add_child(info)
 	var auto := UI.button("おまかせ編成", "ghost", 11, 28)
 	auto.size_flags_vertical = SIZE_SHRINK_CENTER
@@ -125,7 +126,9 @@ func _row(row: String, full: bool) -> Control:
 		if c.pos != row:
 			st.text += " 得意:" + c.pos
 			st.add_theme_color_override("font_color", UI.RED)
-		var card = UI.card(id, false, [c.name, st], _detail.bind(id), 32, _start_drag.bind(id))
+		var card = UI.card(id, false, [c.name, st], Callable(), 32)
+		# タップで詳細、少し長押し（または押したまま動かす）で持ち上げる
+		UI.on_tap(card, _detail.bind(id), _start_drag.bind(id), LIFT_TIME, true)
 		card.custom_minimum_size = Vector2(CARD_W, 66)
 		_cards[id] = card
 		cards.add_child(card)

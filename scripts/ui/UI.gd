@@ -165,8 +165,9 @@ static func tag(text: String, color: Color, size := 10, filled := true) -> Panel
 
 
 ## タップできる領域。スクロール中のドラッグはタップ扱いしない。
-## on_long を渡すと、長押し（0.45秒）でそちらを呼ぶ。長押ししたときはタップ扱いにしない。
-static func on_tap(c: Control, cb: Callable, on_long := Callable()) -> void:
+## on_long を渡すと、長押し（long_time 秒）でそちらを呼ぶ。長押ししたときはタップ扱いにしない。
+## lift_on_move=true なら、押したまま動かし始めた時点でも on_long を呼ぶ（カードを運ぶ操作用）。
+static func on_tap(c: Control, cb: Callable, on_long := Callable(), long_time := LONG_PRESS, lift_on_move := false) -> void:
 	c.mouse_filter = Control.MOUSE_FILTER_PASS
 	var st := {"down": false, "pos": Vector2.ZERO, "moved": false, "long": false, "n": 0}
 	c.gui_input.connect(func(e: InputEvent):
@@ -179,7 +180,7 @@ static func on_tap(c: Control, cb: Callable, on_long := Callable()) -> void:
 				st.n += 1
 				if on_long.is_valid():
 					var my: int = st.n
-					c.get_tree().create_timer(LONG_PRESS).timeout.connect(func():
+					c.get_tree().create_timer(long_time).timeout.connect(func():
 						if is_instance_valid(c) and st.down and not st.moved and st.n == my:
 							st.long = true
 							on_long.call())
@@ -187,6 +188,9 @@ static func on_tap(c: Control, cb: Callable, on_long := Callable()) -> void:
 				st.down = false
 				if not st.long and e.global_position.distance_to(st.pos) < 12.0 and cb.is_valid():
 					cb.call()
+		elif e is InputEventMouseMotion and st.down and not st.long and lift_on_move and on_long.is_valid() 				and e.global_position.distance_to(st.pos) >= 8.0:
+			st.long = true
+			on_long.call()
 		elif e is InputEventMouseMotion and st.down and e.global_position.distance_to(st.pos) >= 18.0:
 			st.moved = true
 	)
