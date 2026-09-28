@@ -40,9 +40,10 @@ func _ready() -> void:
 	main.show_screen("試合")
 	var ms = main.content.get_child(0)
 	ms._kickoff()
+	for k in 4:
+		await get_tree().create_timer(2.2).timeout
+		await _shot("試合_途中%d" % k)
 	await get_tree().create_timer(5.0).timeout
-	await _shot("試合_途中")
-	await get_tree().create_timer(9.0).timeout
 	await _shot("試合_結果")
 	Game.save.settings.speed = "instant"
 	while not Game.season_over():

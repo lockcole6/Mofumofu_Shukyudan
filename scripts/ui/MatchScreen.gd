@@ -242,6 +242,7 @@ func _kickoff() -> void:
 	# ミニコート（結果は決まっていて、雰囲気の演出）
 	var court = MiniCourt.new()
 	court.setup(Game.formation_entries(), result.opp)
+	court.set_plan(result.events)
 	add_child(court)
 	var skip := UI.button("結果までとばす", "ghost", 12, 32)
 	add_child(skip)
@@ -262,12 +263,16 @@ func _kickoff() -> void:
 				return
 			minute += get_process_delta_time() * 90.0 / dur
 			clock.text = "%d'" % mini(int(minute), 90)
+			court.tick(minute)
 		while not events.is_empty() and events[0].min <= minute:
 			var e: Dictionary = events.pop_front()
 			var mine: bool = e.team == 0
 			if e.goal:
 				g[e.team] += 1
-				court.goal(e.team)
+			match e.get("kind", ""):
+				"goal": court.goal(e.team)
+				"cancel": court.save_shot(e.team)
+				"steal", "chance": court.steal(e.team)
 			var txt: String = ("%d'  " % e.min if e.min > 0 else "") + e.text
 			var col: Color = UI.SUB
 			if e.goal:

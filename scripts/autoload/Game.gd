@@ -662,11 +662,11 @@ func simulate(mine: Array, opp: Array, tactic := "バランス", opp_tactic := "
 			for e in mods[t].chance:
 				if randf() * 100.0 < e.v:
 					n += 1
-					events.append({"min": half * 45 + randi_range(1, 44), "team": t, "goal": false, "skill": true, "text": "%s でチャンス！" % e.name})
+					events.append({"min": half * 45 + randi_range(1, 44), "team": t, "goal": false, "skill": true, "kind": "chance", "text": "%s でチャンス！" % e.name})
 			for e in mods[o].steal:
 				if n > 1 and randf() * 100.0 < e.v:
 					n -= 1
-					events.append({"min": half * 45 + randi_range(1, 44), "team": o, "goal": false, "skill": true, "text": "%s でボール奪取！" % e.name})
+					events.append({"min": half * 45 + randi_range(1, 44), "team": o, "goal": false, "skill": true, "kind": "steal", "text": "%s でボール奪取！" % e.name})
 			var prob: float = 0.24 * pw[t].atk / maxf(pw[o].def, 1.0)
 			prob *= (1.0 + mods[t].finisher / 100.0) * (1.0 - mods[o].shrink / 100.0)
 			prob = clampf(prob, 0.04, 0.75)
@@ -680,7 +680,7 @@ func simulate(mine: Array, opp: Array, tactic := "バランス", opp_tactic := "
 					for e in mods[o].cancel:
 						if randf() * 100.0 < e.v:
 							saved = true
-							events.append({"min": minute, "team": o, "goal": false, "skill": true, "text": "%s で失点を取り消した！" % e.name})
+							events.append({"min": minute, "team": o, "goal": false, "skill": true, "kind": "cancel", "text": "%s で失点を取り消した！" % e.name})
 							break
 					if saved:
 						continue
@@ -688,7 +688,7 @@ func simulate(mine: Array, opp: Array, tactic := "バランス", opp_tactic := "
 				goals[t] += 1
 				stats[t][si].goals += 1
 				stats[t][si].rating += 30.0
-				events.append({"min": minute, "team": t, "goal": true, "text": "%s のゴール！" % chars[teams[t][si].id].name})
+				events.append({"min": minute, "team": t, "goal": true, "kind": "goal", "scorer": si, "text": "%s のゴール！" % chars[teams[t][si].id].name})
 	events.sort_custom(func(a, b): return a.min < b.min)
 	var outcome := "draw"
 	if goals[0] > goals[1]:
