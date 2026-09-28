@@ -4,7 +4,9 @@ extends VBoxContainer
 
 const UI = preload("res://scripts/ui/UI.gd")
 const CharDetail = preload("res://scripts/ui/CharDetail.gd")
-const SPEED := {"normal": 0.5, "fast": 0.15, "instant": 0.0}
+const MiniCourt = preload("res://scripts/ui/MiniCourt.gd")
+## 試合の演出にかける秒数（設定の表示速度）
+const MATCH_SECONDS := {"normal": 12.0, "fast": 5.0, "instant": 0.0}
 const ZONE_COLORS := {"up": Color("3ddc97"), "champion": Color("ffc83d"), "down": Color("ff4d6d"), "": Color(0, 0, 0, 0)}
 
 var result := {}
@@ -235,37 +237,55 @@ func _kickoff() -> void:
 	add_child(board)
 
 	var feed := UI.vbox(3)
-	add_child(UI.scroll(feed))
+	var feed_sc := UI.scroll(feed)
+	add_child(feed_sc)
+	# ミニコート（結果は決まっていて、雰囲気の演出）
+	var court = MiniCourt.new()
+	court.setup(Game.formation_entries(), result.opp)
+	add_child(court)
 	var skip := UI.button("結果までとばす", "ghost", 12, 32)
 	add_child(skip)
 
-	var wait: float = SPEED.get(Game.save.settings.speed, 0.5)
-	var state := {"skip": wait <= 0.0}
+	# 試合時計を進めて、その時刻になったイベントを流す
+	var dur: float = MATCH_SECONDS.get(Game.save.settings.speed, 12.0)
+	var state := {"skip": dur <= 0.0}
 	skip.pressed.connect(func(): state.skip = true)
 	var g := [0, 0]
-	for e in result.events:
-		if not state.skip:
-			await get_tree().create_timer(wait).timeout
+	var minute := 0.0
+	var events: Array = result.events.duplicate()
+	while not events.is_empty() or minute < 90.0:
+		if state.skip:
+			minute = 999.0
+		else:
+			await get_tree().process_frame
 			if not is_inside_tree() or view != _view:
 				return
-		var mine: bool = e.team == 0
-		if e.goal:
-			g[e.team] += 1
-		var txt: String = ("%d'  " % e.min if e.min > 0 else "") + e.text
-		var col: Color = UI.SUB
-		if e.goal:
-			col = UI.CYAN if mine else UI.PINK
-		elif e.get("skill", false):
-			col = Color(UI.CYAN if mine else UI.PINK, 0.7)
-		var line := UI.label(txt, 14 if e.goal else 11, col,
-			HORIZONTAL_ALIGNMENT_LEFT if mine else HORIZONTAL_ALIGNMENT_RIGHT, e.goal)
-		feed.add_child(line)
-		score.text = "%d - %d" % g
-		clock.text = "%d'" % e.min
+			minute += get_process_delta_time() * 90.0 / dur
+			clock.text = "%d'" % mini(int(minute), 90)
+		while not events.is_empty() and events[0].min <= minute:
+			var e: Dictionary = events.pop_front()
+			var mine: bool = e.team == 0
+			if e.goal:
+				g[e.team] += 1
+				court.goal(e.team)
+			var txt: String = ("%d'  " % e.min if e.min > 0 else "") + e.text
+			var col: Color = UI.SUB
+			if e.goal:
+				col = UI.CYAN if mine else UI.PINK
+			elif e.get("skill", false):
+				col = Color(UI.CYAN if mine else UI.PINK, 0.7)
+			var line := UI.label(txt, 14 if e.goal else 11, col,
+				HORIZONTAL_ALIGNMENT_LEFT if mine else HORIZONTAL_ALIGNMENT_RIGHT, e.goal)
+			feed.add_child(line)
+			score.text = "%d - %d" % g
+			feed_sc.set_deferred("scroll_vertical", 99999)
+		if minute >= 90.0 and events.is_empty():
+			break
 	if not state.skip:
-		await get_tree().create_timer(wait).timeout
+		await get_tree().create_timer(1.0).timeout
 		if not is_inside_tree() or view != _view:
 			return
+	court.queue_free()
 	score.text = "%d - %d" % result.goals
 	clock.text = "FULL TIME"
 	skip.queue_free()

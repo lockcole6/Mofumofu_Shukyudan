@@ -1,5 +1,5 @@
 extends PanelContainer
-## 編成の1列。選手をドロップするとこの列へ移動する。
+## 編成の1列（row が空ならベンチ）。選手をドロップするとそこへ移動する。
 
 var row := ""
 var on_drop := Callable()   # (選手id, 列)

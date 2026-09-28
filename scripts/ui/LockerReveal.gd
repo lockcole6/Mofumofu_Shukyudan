@@ -58,7 +58,7 @@ func _show_locker() -> void:
 	UI.clear(stage)
 	var res: Dictionary = results[idx]
 	var c: Dictionary = Game.chars[res.id]
-	var rc: Color = UI.RARITY_COLORS[res.rarity]
+	var rc: Color = UI.DOOR_COLORS[res.rarity]
 	phase = "closed"
 	t = 0.0
 

@@ -19,7 +19,12 @@ const GOLD := Color("ffc83d")
 const RED := Color("ff4d6d")
 const BLUE := Color("3d8bff")
 const GREEN := Color("3ddc97")
-const RARITY_COLORS := {1: Color("8aa0c8"), 2: Color("3ddc97"), 3: Color("ffc83d"), 4: Color("ff4fd8")}
+## ★はポジションの色とまぎれないよう1色に統一。レア度は★の数とカードの枠（★3金・★4虹）で見せる
+const STAR := Color("ffeeb0")
+const RARITY_COLORS := {1: STAR, 2: STAR, 3: STAR, 4: STAR}
+## ガチャの扉と排出率だけはレア度ごとの色
+const DOOR_COLORS := {1: Color("8aa0c8"), 2: Color("3ddc97"), 3: Color("ffc83d"), 4: Color("ff4fd8")}
+const GOLD_FRAME := Color("ffd24a")
 const ROW_COLORS := {"攻": Color("ff4d6d"), "中": Color("3ddc97"), "守": Color("3d8bff"), "GK": Color("ffb020")}
 const HABITAT_COLORS := {"草原": Color("8ee05a"), "森": Color("3ddc97"), "海": Color("3d8bff"),
 	"雪山": Color("9fd8ff"), "空": Color("22d3ff"), "伝説": Color("ffc83d"), "蹴球": Color("ff4fd8")}

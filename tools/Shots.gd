@@ -36,12 +36,15 @@ func _ready() -> void:
 	_close_modals(main)
 	Game.place(2, "攻")
 	# 試合
-	Game.save.settings.speed = "instant"
+	Game.save.settings.speed = "normal"
 	main.show_screen("試合")
 	var ms = main.content.get_child(0)
 	ms._kickoff()
-	await get_tree().create_timer(0.5).timeout
+	await get_tree().create_timer(5.0).timeout
+	await _shot("試合_途中")
+	await get_tree().create_timer(9.0).timeout
 	await _shot("試合_結果")
+	Game.save.settings.speed = "instant"
 	while not Game.season_over():
 		Game.play_round("バランス")
 	ms.show_league()
@@ -74,6 +77,11 @@ func _ready() -> void:
 	Game.auto_formation()
 	main.show_screen("編成")
 	await _shot("編成_おまかせ")
+	var ts3 = main.content.get_child(0)
+	ts3.swap_mode = true
+	ts3.sel = Game.row_ids("中")[0]
+	ts3.build()
+	await _shot("編成_入れ替え")
 	var ts2 = main.content.get_child(0)
 	ts2.view = "スキル"
 	ts2.build()

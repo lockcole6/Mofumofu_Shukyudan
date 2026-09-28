@@ -12,6 +12,8 @@ var selected := false
 var dim := false
 var badge := ""             # 右上に出す小さなラベル（NEW など）
 var pos := ""
+var rarity := 0
+var _t := randf() * 10.0
 var draggable := false
 var on_drop := Callable()   # (ドラッグしてきた選手id, このカードの選手id)
 
@@ -29,6 +31,7 @@ func setup(id: int, sil := false, lines := [], icon_size := 44) -> void:
 	else:
 		var c: Dictionary = Game.chars[id]
 		pos = c.pos if not sil else ""
+		rarity = c.rarity if not sil else 0
 		rcol = UI.ROW_COLORS[c.pos] if not sil else UI.DIM
 		var ic := UI.icon(c, sil, icon_size)
 		ic.size_flags_horizontal = SIZE_SHRINK_CENTER
@@ -46,6 +49,12 @@ func setup(id: int, sil := false, lines := [], icon_size := 44) -> void:
 	add_child(v)
 	UI.ignore_mouse(v)
 	mouse_filter = MOUSE_FILTER_PASS
+
+
+func _process(delta: float) -> void:
+	if rarity >= 3 and is_visible_in_tree():
+		_t += delta
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -66,6 +75,20 @@ func _draw() -> void:
 			var w := 18.0 if pos == "GK" else 13.0
 			draw_colored_polygon(PackedVector2Array([Vector2(1, 1), Vector2(w + 5, 1), Vector2(w, 13), Vector2(1, 13)]), rcol)
 			draw_string(f, Vector2(3, 11), pos, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UI.BG)
+	# ★3は金の枠、★4は虹色の枠。どちらもときどき光が走る
+	if rarity >= 3:
+		var fc := UI.GOLD_FRAME if rarity == 3 else Color.from_hsv(fposmod(_t * 0.25, 1.0), 0.55, 1.0)
+		var fb := UI.sbox(Color(0, 0, 0, 0), 4, fc, 2, 0)
+		draw_style_box(fb, r)
+		var ph := fposmod(_t, 3.2) / 1.2   # 0〜1 の間だけ光が横切る
+		if ph < 1.0:
+			var x := -30.0 + ph * (size.x + 60.0)
+			var shine := Color(1, 1, 1, 0.22 if rarity == 4 else 0.16)
+			var pts := PackedVector2Array()
+			for p in [Vector2(x, 2), Vector2(x + 14, 2), Vector2(x - 6, size.y - 2), Vector2(x - 20, size.y - 2)]:
+				pts.append(Vector2(clampf(p.x, 2, size.x - 2), p.y))
+			if pts[1].x - pts[0].x > 0.5 or pts[2].x - pts[3].x > 0.5:
+				draw_colored_polygon(pts, shine)
 	if badge != "":
 		var f2: Font = UI.heavy_font if UI.heavy_font else get_theme_default_font()
 		var tw := f2.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x + 8

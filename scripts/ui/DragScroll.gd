@@ -4,6 +4,8 @@ extends ScrollContainer
 
 const THRESHOLD := 8.0
 
+var horizontal := false   # true なら横スクロール（ベンチなど）
+
 var _pressing := false
 var _dragging := false
 var _start := Vector2.ZERO
@@ -14,7 +16,11 @@ var _synth := false
 
 
 func _ready() -> void:
-	horizontal_scroll_mode = SCROLL_MODE_DISABLED
+	if horizontal:
+		vertical_scroll_mode = SCROLL_MODE_DISABLED
+		horizontal_scroll_mode = SCROLL_MODE_SHOW_NEVER
+	else:
+		horizontal_scroll_mode = SCROLL_MODE_DISABLED
 
 
 func _input(e: InputEvent) -> void:
@@ -26,8 +32,8 @@ func _input(e: InputEvent) -> void:
 				_pressing = true
 				_dragging = false
 				_start = e.position
-				_start_scroll = scroll_vertical
-				_last_y = e.position.y
+				_start_scroll = scroll_horizontal if horizontal else scroll_vertical
+				_last_y = _axis(e.position)
 				_vel = 0.0
 		elif _pressing:
 			_pressing = false
@@ -35,15 +41,20 @@ func _input(e: InputEvent) -> void:
 				_dragging = false
 				get_viewport().set_input_as_handled()
 	elif e is InputEventMouseMotion and _pressing:
-		var dy: float = e.position.y - _start.y
-		if not _dragging and absf(dy) > THRESHOLD:
+		var d: Vector2 = e.position - _start
+		var dy: float = d.x if horizontal else d.y
+		var other: float = d.y if horizontal else d.x
+		# スクロール方向に動いたときだけ（別方向ならドラッグ＆ドロップに任せる）
+		if not _dragging and absf(dy) > THRESHOLD and absf(dy) > absf(other):
 			_dragging = true
 			_vel = 0.0
 			_cancel_press(e.position)
+		elif not _dragging and absf(other) > THRESHOLD and absf(other) > absf(dy):
+			_pressing = false
 		if _dragging:
-			scroll_vertical = int(_start_scroll - dy)
-			_vel = lerpf(_vel, _last_y - e.position.y, 0.5)
-			_last_y = e.position.y
+			_set_scroll(int(_start_scroll - dy))
+			_vel = lerpf(_vel, _last_y - _axis(e.position), 0.5)
+			_last_y = _axis(e.position)
 			get_viewport().set_input_as_handled()
 
 
@@ -51,8 +62,19 @@ func _process(delta: float) -> void:
 	if _pressing or absf(_vel) < 0.3:
 		_vel = 0.0
 		return
-	scroll_vertical += int(_vel)
+	_set_scroll((scroll_horizontal if horizontal else scroll_vertical) + int(_vel))
 	_vel *= pow(0.02, delta)
+
+
+func _axis(p: Vector2) -> float:
+	return p.x if horizontal else p.y
+
+
+func _set_scroll(v: int) -> void:
+	if horizontal:
+		scroll_horizontal = v
+	else:
+		scroll_vertical = v
 
 
 ## ボタンなどが押しっぱなし扱いにならないよう、画面外で離したことにする

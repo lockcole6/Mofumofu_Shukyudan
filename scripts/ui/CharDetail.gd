@@ -124,6 +124,17 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 			changed.call())
 		ah.add_child(sell)
 		v.add_child(ah)
+		if opts.get("team", false) and not Game.in_team(id):
+			var go := UI.button("出場させる（%sの列へ）" % c.pos, "primary", 13, 36)
+			go.pressed.connect(func():
+				var err := Game.place(id, c.pos)
+				if err != "":
+					Game.toast.emit(err)
+					return
+				if opts.has("on_change"):
+					opts.on_change.call()
+				close.call())
+			v.add_child(go)
 		if opts.get("team", false) and Game.in_team(id):
 			var th := UI.hbox(8)
 			var sw := UI.button("入れ替える", "ghost", 13, 36)

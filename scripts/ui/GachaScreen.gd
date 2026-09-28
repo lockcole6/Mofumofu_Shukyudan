@@ -23,11 +23,11 @@ func build() -> void:
 		total += float(x)
 	for i in 4:
 		var row := UI.hbox(8)
-		var st := UI.label(UI.stars(i + 1), 13, UI.RARITY_COLORS[i + 1])
+		var st := UI.label(UI.stars(i + 1), 13, UI.STAR)
 		st.custom_minimum_size.x = 60
 		row.add_child(st)
 		var pct := 100.0 * float(r[i]) / maxf(total, 0.001)
-		var b := UI.bar(pct, 100, UI.RARITY_COLORS[i + 1], 4)
+		var b := UI.bar(pct, 100, UI.DOOR_COLORS[i + 1], 4)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
 		row.add_child(b)
 		var pl := UI.label("%.1f%%" % pct, 12, UI.INK, HORIZONTAL_ALIGNMENT_RIGHT, true)

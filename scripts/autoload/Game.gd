@@ -250,6 +250,8 @@ func load_game() -> void:
 		data = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	if data is Dictionary and int(data.get("version", 0)) == 2:
 		_migrate_v2(data)
+	if data is Dictionary:
+		data = _intify(data)
 	if data is Dictionary and int(data.get("version", 0)) == SAVE_VERSION:
 		for k in data:
 			save[k] = data[k]
@@ -258,6 +260,21 @@ func load_game() -> void:
 	if save.league.is_empty():
 		new_season(5)
 	_lineup_cache.clear()
+
+
+## JSONは数値をすべて小数で返すので、整数の値は int に戻す（勝点が 4.0 と出ないように）
+## ただしガチャの排出の重みなど、小数を使う設定はそのまま
+static func _intify(v):
+	if v is Dictionary:
+		for k in v:
+			if k != "rates":
+				v[k] = _intify(v[k])
+	elif v is Array:
+		for i in v.size():
+			v[i] = _intify(v[i])
+	elif v is float and v == floorf(v):
+		return int(v)
+	return v
 
 
 ## v2 は4x4のマス番号で持っていたので、列に直す（GKが複数なら余りは守へ）
