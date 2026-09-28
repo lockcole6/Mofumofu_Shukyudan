@@ -74,6 +74,10 @@ func _ready() -> void:
 	Game.auto_formation()
 	main.show_screen("編成")
 	await _shot("編成_おまかせ")
+	var ts2 = main.content.get_child(0)
+	ts2.view = "スキル"
+	ts2.build()
+	await _shot("編成_スキル")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	get_tree().quit()
 

@@ -8,6 +8,8 @@ const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 const DropRow = preload("res://scripts/ui/DropRow.gd")
 const CARD_W := 66
 
+var view := "ピッチ"   # ピッチ / スキル
+
 
 func _ready() -> void:
 	add_theme_constant_override("separation", 8)
@@ -43,15 +45,25 @@ func build() -> void:
 		sv.add_child(UI.label(s[0], 9, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
 		sv.add_child(UI.label(str(int(s[1])), 22, s[2], HORIZONTAL_ALIGNMENT_LEFT, true))
 		hh.add_child(sv)
-	hh.add_child(UI.spacer())
-	var auto := UI.button("おまかせ", "ghost", 12, 32)
-	auto.size_flags_vertical = SIZE_SHRINK_CENTER
+	head.add_child(hh)
+	add_child(head)
+
+	# ピッチ／スキル一覧の切り替えと、おまかせ
+	var bar := UI.hbox(6)
+	var seg := UI.segmented(["ピッチ", "スキル"], view, func(v):
+		view = v
+		build(), 12)
+	seg.size_flags_horizontal = SIZE_EXPAND_FILL
+	bar.add_child(seg)
+	var auto := UI.button("おまかせ", "ghost", 12, 34)
 	auto.pressed.connect(func():
 		Game.auto_formation()
 		build())
-	hh.add_child(auto)
-	head.add_child(hh)
-	add_child(head)
+	bar.add_child(auto)
+	add_child(bar)
+	if view == "スキル":
+		add_child(UI.scroll(_skill_list(entries, pw.mods.combos)))
+		return
 
 	# 発動中の連携スキル
 	var fl := UI.flow(4)
@@ -66,6 +78,8 @@ func build() -> void:
 		add_child(UI.label("コスト上限をこえています。試合に出るには減らしてね", 11, UI.RED))
 	elif not full:
 		add_child(UI.label("あと%d人置けます（＋をタップ）" % (Game.TEAM_SIZE - entries.size()), 11, UI.CYAN))
+	else:
+		add_child(UI.label("タップで詳細 ／ ドラッグで移動・選手の上で入れ替え", 10, UI.DIM))
 
 	# ピッチ
 	var pitch := PanelContainer.new()
@@ -76,7 +90,68 @@ func build() -> void:
 		rows.add_child(_row(row, full))
 	pitch.add_child(rows)
 	add_child(pitch)
-	add_child(UI.label("タップで詳細 ／ ドラッグで列を移動・選手の上で入れ替え", 10, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER))
+
+
+## 出場メンバーの固有スキルと、連携スキルの一覧
+func _skill_list(entries: Array, active: Array) -> VBoxContainer:
+	var v := UI.vbox(6)
+	for row in Game.GRID_ROWS:
+		for p in entries:
+			if p.row != row:
+				continue
+			var c: Dictionary = Game.chars[p.id]
+			var h := UI.hbox(8)
+			var card = UI.card(p.id, false, [], Callable(), 34)
+			card.custom_minimum_size = Vector2(50, 50)
+			card.size_flags_vertical = SIZE_SHRINK_CENTER
+			h.add_child(card)
+			var sv := UI.vbox(1)
+			sv.size_flags_horizontal = SIZE_EXPAND_FILL
+			var nh := UI.hbox(6)
+			nh.add_child(UI.label(c.name, 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
+			nh.add_child(UI.label(UI.stars(c.rarity), 9, UI.RARITY_COLORS[c.rarity]))
+			sv.add_child(nh)
+			var sh := UI.hbox(6)
+			sh.add_child(UI.label(c.skill.name, 14, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+			sh.add_child(UI.tag("Lv%d" % p.slv, UI.CYAN, 9, false))
+			sv.add_child(sh)
+			sv.add_child(UI.wrap_label(Game.skill_text(p.id, p.slv), 11, UI.CYAN))
+			h.add_child(sv)
+			var pn := UI.panel(UI.PANEL, 6, UI.ROW_COLORS[row])
+			pn.add_child(h)
+			UI.on_tap(pn, _detail.bind(p.id, row))
+			v.add_child(pn)
+
+	v.add_child(UI.label("連携スキル", 12, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	var ids := entries.map(func(p): return p.id)
+	var shown := 0
+	for cb in Game.combos:
+		var missing: Array = cb.ids.filter(func(i): return not i in ids)
+		# 発動中のものと、あと1人で発動するもの（その1人を持っている）を出す
+		if missing.size() > 1 or (missing.size() == 1 and not Game.owned(missing[0])):
+			continue
+		shown += 1
+		var on := missing.is_empty()
+		var pn := UI.panel(UI.PANEL, 8, UI.PINK if on else UI.LINE)
+		var cv := UI.vbox(3)
+		var ch := UI.hbox(6)
+		ch.add_child(UI.label(cb.name, 13, UI.INK if on else UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
+		ch.add_child(UI.spacer())
+		ch.add_child(UI.tag("発動中" if on else "あと%sで発動" % Game.chars[missing[0]].name, UI.PINK if on else UI.SUB, 9, on))
+		cv.add_child(ch)
+		var mh := UI.hbox(2)
+		for mid in cb.ids:
+			var ic := UI.icon(Game.chars[mid], false, 26)
+			if mid in missing:
+				ic.modulate.a = 0.35
+			mh.add_child(ic)
+		cv.add_child(mh)
+		cv.add_child(UI.label(Game.combo_text(cb), 11, UI.PINK if on else UI.SUB))
+		pn.add_child(cv)
+		v.add_child(pn)
+	if shown == 0:
+		v.add_child(UI.label("発動中の連携はありません。組み合わせは各キャラの詳細で見られます", 10, UI.DIM))
+	return v
 
 
 func _row(row: String, full: bool) -> Control:
@@ -111,7 +186,7 @@ func _row(row: String, full: bool) -> Control:
 			st.text += " 得意:" + c.pos
 			st.add_theme_color_override("font_color", UI.RED)
 		var card = UI.card(id, false, [c.name, st], _detail.bind(id, row), 38)
-		card.custom_minimum_size = Vector2(CARD_W, 84)
+		card.custom_minimum_size = Vector2(CARD_W, 76)
 		card.draggable = true
 		card.on_drop = func(from, to):
 			if Game.in_team(from):
@@ -123,7 +198,7 @@ func _row(row: String, full: bool) -> Control:
 	var can_add: bool = ids.size() < Game.ROW_MAX[row] and (not full or row == "GK")
 	if ids.is_empty():
 		var empty = UI.card(0, false, [UI.label("追加", 9, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER)], _picker.bind(row), 38)
-		empty.custom_minimum_size = Vector2(CARD_W, 84)
+		empty.custom_minimum_size = Vector2(CARD_W, 76)
 		empty.dim = not can_add
 		cards.add_child(empty)
 	center.add_child(cards)

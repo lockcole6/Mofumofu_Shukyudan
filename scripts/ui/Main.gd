@@ -2,8 +2,8 @@ extends Control
 
 const UI = preload("res://scripts/ui/UI.gd")
 const TABS := [
-	["編成", preload("res://scripts/ui/TeamScreen.gd")],
 	["試合", preload("res://scripts/ui/MatchScreen.gd")],
+	["編成", preload("res://scripts/ui/TeamScreen.gd")],
 	["図鑑", preload("res://scripts/ui/DexScreen.gd")],
 	["ガチャ", preload("res://scripts/ui/GachaScreen.gd")],
 	["設定", preload("res://scripts/ui/SettingsScreen.gd")],
@@ -96,7 +96,7 @@ func _ready() -> void:
 	Game.changed.connect(_refresh_top)
 	Game.toast.connect(show_toast)
 	_refresh_top()
-	show_screen("編成", false)
+	show_screen("試合", false)
 	_refresh_back()
 
 

@@ -21,15 +21,41 @@ func show_league() -> void:
 	_view += 1
 	UI.clear(self)
 	var L: Dictionary = Game.save.league
-	var body := UI.vbox(10)
+	var order := Game.standings()
+	var body := UI.vbox(8)
 	var head := UI.hbox()
-	head.add_child(UI.title("%d部リーグ" % Game.division(), "SEASON %d" % L.season))
+	var rd := "全日程終了" if Game.season_over() else "第%d節 / 5" % (int(L.round) + 1)
+	head.add_child(UI.title("%d部リーグ" % Game.division(), "SEASON %d ・ %s" % [L.season, rd]))
 	head.add_child(UI.spacer())
-	head.add_child(UI.tag("いまは %s" % Game.time_text(), UI.PINK if Game.is_night() else UI.GOLD, 10, false))
+	head.add_child(UI.tag(Game.time_text(), UI.PINK if Game.is_night() else UI.GOLD, 10, false))
 	body.add_child(head)
-	body.add_child(_table(Game.standings(), L.table))
+
+	# いまの順位（くわしくは順位表のモーダルで）
+	var rank := order.find(0) + 1
+	var z := Game.zone(rank)
+	var me: Dictionary = L.table[0]
+	var rp := UI.panel(UI.PANEL, 8, ZONE_COLORS[z] if z != "" else UI.LINE)
+	var rh := UI.hbox(10)
+	var rl := UI.label("%d位" % rank, 22, ZONE_COLORS[z] if z != "" else UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true)
+	rh.add_child(rl)
+	var rv := UI.vbox(0)
+	rv.add_child(UI.label("勝点 %d" % me.pts, 13, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	rv.add_child(UI.label("%d勝 %d分 %d敗" % [me.w, me.d, me.l], 10, UI.SUB))
+	rh.add_child(rv)
+	rh.add_child(UI.spacer())
+	var tb := UI.button("順位表 ›", "ghost", 12, 32)
+	tb.size_flags_vertical = SIZE_SHRINK_CENTER
+	tb.pressed.connect(func():
+		var mv := UI.vbox(8)
+		mv.add_child(UI.title("%d部リーグ 順位表" % Game.division()))
+		mv.add_child(_table(Game.standings(), Game.save.league.table))
+		UI.modal(self, mv))
+	rh.add_child(tb)
+	rp.add_child(rh)
+	body.add_child(rp)
 
 	if Game.season_over():
+		body.add_child(_table(order, L.table))
 		var p := UI.panel(UI.PANEL, 12, UI.LIME)
 		var pv := UI.vbox(8)
 		pv.add_child(UI.label("全日程終了！", 18, UI.LIME, HORIZONTAL_ALIGNMENT_CENTER, true))
@@ -41,18 +67,19 @@ func show_league() -> void:
 		add_child(UI.scroll(body))
 		return
 
+	# 次の相手
 	var opp_i := Game.opponent_index()
 	var opp := Game.lineup(opp_i)
 	var mine := Game.formation_entries()
-	var np := UI.panel(UI.PANEL, 10, UI.CYAN)
-	var nv := UI.vbox(8)
+	var np := UI.panel(UI.PANEL, 8, UI.CYAN)
+	var nv := UI.vbox(6)
 	var nh := UI.hbox(6)
-	nh.add_child(UI.label("第%d節" % (int(L.round) + 1), 12, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
-	nh.add_child(UI.label("VS", 12, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
+	nh.add_child(UI.label("VS", 12, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
 	nh.add_child(UI.label(L.teams[opp_i].name, 15, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	nh.add_child(UI.spacer())
+	nh.add_child(UI.label("%d位 ・ %s" % [order.find(opp_i) + 1, Game.formation_name(opp)], 11, UI.SUB))
 	nv.add_child(nh)
 	nv.add_child(_mini_pitch(opp))
-	nv.add_child(UI.label("勝てば1体スカウトできる（ガチャ限定の選手は不可）", 10, UI.SUB))
 
 	var a := Game.team_power(mine)
 	var b := Game.team_power(opp)
@@ -60,35 +87,42 @@ func show_league() -> void:
 		var row := UI.hbox(6)
 		var mv: float = a[s[1]]
 		var ov: float = b[s[1]]
-		var l1 := UI.label(str(int(mv)), 13, UI.CYAN, HORIZONTAL_ALIGNMENT_RIGHT, true)
-		l1.custom_minimum_size.x = 34
+		var l1 := UI.label(str(int(mv)), 12, UI.CYAN, HORIZONTAL_ALIGNMENT_RIGHT, true)
+		l1.custom_minimum_size.x = 30
 		row.add_child(l1)
-		var b1 := UI.bar(mv, mv + ov, UI.CYAN, 6)
+		var b1 := UI.bar(mv, mv + ov, UI.CYAN, 5)
 		b1.fill_mode = ProgressBar.FILL_END_TO_BEGIN
 		b1.size_flags_horizontal = SIZE_EXPAND_FILL
 		row.add_child(b1)
-		var mid := UI.label(s[0], 11, s[2], HORIZONTAL_ALIGNMENT_CENTER, true)
-		mid.custom_minimum_size.x = 34
+		var mid := UI.label(s[0], 10, s[2], HORIZONTAL_ALIGNMENT_CENTER, true)
+		mid.custom_minimum_size.x = 30
 		row.add_child(mid)
-		var b2 := UI.bar(ov, mv + ov, UI.PINK, 6)
+		var b2 := UI.bar(ov, mv + ov, UI.PINK, 5)
 		b2.size_flags_horizontal = SIZE_EXPAND_FILL
 		row.add_child(b2)
-		var l2 := UI.label(str(int(ov)), 13, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true)
-		l2.custom_minimum_size.x = 34
+		var l2 := UI.label(str(int(ov)), 12, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true)
+		l2.custom_minimum_size.x = 30
 		row.add_child(l2)
 		nv.add_child(row)
 	np.add_child(nv)
 	body.add_child(np)
 
-	body.add_child(UI.label("作戦", 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
-	body.add_child(UI.segmented(Game.TACTICS, Game.save.tactic, func(t):
+	# 作戦
+	var th := UI.hbox(6)
+	var tl := UI.label("作戦", 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true)
+	tl.size_flags_vertical = SIZE_SHRINK_CENTER
+	th.add_child(tl)
+	var seg := UI.segmented(Game.TACTICS, Game.save.tactic, func(t):
 		Game.save.tactic = t
 		Game.save_game()
-		show_league()))
-	body.add_child(UI.label(Game.TACTIC_DESC[Game.save.tactic], 11, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
+		show_league(), 12)
+	seg.size_flags_horizontal = SIZE_EXPAND_FILL
+	th.add_child(seg)
+	body.add_child(th)
+	body.add_child(UI.label(Game.TACTIC_DESC[Game.save.tactic], 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
 	add_child(UI.scroll(body))
 
-	var go := UI.button("キックオフ", "pink", 18, 50)
+	var go := UI.button("キックオフ", "pink", 18, 48)
 	var cost := Game.formation_cost()
 	if mine.size() < Game.TEAM_SIZE:
 		go.disabled = true
@@ -144,7 +178,7 @@ func _table(order: Array, T: Array) -> PanelContainer:
 
 ## 相手のメンバーを列ごとに中央寄せで見せる
 func _mini_pitch(members: Array) -> VBoxContainer:
-	var v := UI.vbox(3)
+	var v := UI.vbox(2)
 	for row in Game.GRID_ROWS:
 		var h := UI.hbox(3)
 		var lab := UI.label(row, 9, UI.ROW_COLORS[row], HORIZONTAL_ALIGNMENT_CENTER, true)
@@ -158,11 +192,10 @@ func _mini_pitch(members: Array) -> VBoxContainer:
 		for m in members:
 			if m.row != row:
 				continue
-			var lines := []
+			var card = UI.card(m.id, false, [], func(): CharDetail.open(self, m.id, {"readonly": true}), 30)
+			card.custom_minimum_size = Vector2(58, 40)
 			if not Game.owned(m.id):
-				lines.append(UI.tag("NEW", UI.PINK, 8))
-			var card = UI.card(m.id, false, lines, func(): CharDetail.open(self, m.id, {"readonly": true}), 30)
-			card.custom_minimum_size = Vector2(52, 48)
+				card.badge = "NEW"
 			cards.add_child(card)
 		center.add_child(cards)
 		h.add_child(center)
@@ -170,7 +203,6 @@ func _mini_pitch(members: Array) -> VBoxContainer:
 		r.custom_minimum_size.x = 22
 		h.add_child(r)
 		v.add_child(h)
-	v.add_child(UI.label(Game.formation_name(members), 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER, true))
 	return v
 
 

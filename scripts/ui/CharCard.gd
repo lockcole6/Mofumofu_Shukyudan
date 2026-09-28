@@ -1,5 +1,6 @@
 extends MarginContainer
-## キャラのカード。レア度の色で下から光るグラデーションを描く。
+## キャラのカード。ポジションの色で縁取りと下からのグラデーションを描き、
+## 左上にポジション（攻・中・守・GK）のバッジを出す。レア度は★の数で見せる。
 ## 編成ではドラッグで移動できる（draggable / on_drop を設定したとき）。
 
 const UI = preload("res://scripts/ui/UI.gd")
@@ -9,6 +10,8 @@ var silhouette := false
 var rcol := Color.GRAY
 var selected := false
 var dim := false
+var badge := ""             # 右上に出す小さなラベル（NEW など）
+var pos := ""
 var draggable := false
 var on_drop := Callable()   # (ドラッグしてきた選手id, このカードの選手id)
 
@@ -25,7 +28,8 @@ func setup(id: int, sil := false, lines := [], icon_size := 44) -> void:
 		v.add_child(UI.label("+", 22, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER))
 	else:
 		var c: Dictionary = Game.chars[id]
-		rcol = UI.RARITY_COLORS[c.rarity] if not sil else UI.DIM
+		pos = c.pos if not sil else ""
+		rcol = UI.ROW_COLORS[c.pos] if not sil else UI.DIM
 		var ic := UI.icon(c, sil, icon_size)
 		ic.size_flags_horizontal = SIZE_SHRINK_CENTER
 		v.add_child(ic)
@@ -57,7 +61,16 @@ func _draw() -> void:
 		var b := Color(rcol, 0.3)
 		draw_polygon(PackedVector2Array([Vector2(1, top), Vector2(size.x - 1, top), Vector2(size.x - 1, size.y - 1), Vector2(1, size.y - 1)]),
 			PackedColorArray([a, a, b, b]))
-		draw_colored_polygon(PackedVector2Array([Vector2(1, 1), Vector2(13, 1), Vector2(1, 13)]), rcol)
+		if pos != "":
+			var f: Font = UI.heavy_font if UI.heavy_font else get_theme_default_font()
+			var w := 18.0 if pos == "GK" else 13.0
+			draw_colored_polygon(PackedVector2Array([Vector2(1, 1), Vector2(w + 5, 1), Vector2(w, 13), Vector2(1, 13)]), rcol)
+			draw_string(f, Vector2(3, 11), pos, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UI.BG)
+	if badge != "":
+		var f2: Font = UI.heavy_font if UI.heavy_font else get_theme_default_font()
+		var tw := f2.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x + 8
+		draw_colored_polygon(PackedVector2Array([Vector2(size.x - tw - 3, 1), Vector2(size.x - 1, 1), Vector2(size.x - 1, 12), Vector2(size.x - tw - 6, 12)]), UI.PINK)
+		draw_string(f2, Vector2(size.x - tw + 1, 10), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color.WHITE)
 	if dim:
 		draw_rect(r, Color(0, 0, 0, 0.55))
 
