@@ -2,22 +2,23 @@ extends Control
 
 const UI = preload("res://scripts/ui/UI.gd")
 const TABS := [
-	["試合", preload("res://scripts/ui/MatchScreen.gd")],
-	["ガチャ", preload("res://scripts/ui/GachaScreen.gd")],
-	["図鑑", preload("res://scripts/ui/DexScreen.gd")],
 	["編成", preload("res://scripts/ui/TeamScreen.gd")],
-	["デバッグ", preload("res://scripts/ui/DebugScreen.gd")],
+	["試合", preload("res://scripts/ui/MatchScreen.gd")],
+	["図鑑", preload("res://scripts/ui/DexScreen.gd")],
+	["ガチャ", preload("res://scripts/ui/GachaScreen.gd")],
+	["設定", preload("res://scripts/ui/SettingsScreen.gd")],
 ]
 
 var content: MarginContainer
 var stones_label: Label
-var frag_label: Label
+var div_label: Label
 var tab_buttons := {}
 var toast_box: VBoxContainer
+var current := ""
 
 
 func _ready() -> void:
-	theme = _make_theme()
+	get_window().theme = _make_theme()
 	var bg := ColorRect.new()
 	bg.color = UI.BG
 	bg.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
@@ -29,31 +30,49 @@ func _ready() -> void:
 
 	# 上のバー
 	var top := PanelContainer.new()
-	var tsb := UI.sbox(UI.ORANGE, 0, Color(0, 0, 0, 0), 0, 6)
-	tsb.content_margin_left = 10
-	tsb.content_margin_right = 10
+	var tsb := UI.sbox(UI.PANEL, 0, UI.LINE, 0, 8)
+	tsb.border_width_bottom = 1
+	tsb.content_margin_left = 12
+	tsb.content_margin_right = 12
 	top.add_theme_stylebox_override("panel", tsb)
-	var th := UI.hbox(6)
-	th.add_child(UI.label("もふもふ蹴球団", 16, Color.WHITE))
+	var th := UI.hbox(8)
+	var logo := UI.hbox(0)
+	logo.add_child(UI.label("もふもふ", 15, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	logo.add_child(UI.label("蹴球団", 15, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
+	th.add_child(logo)
 	th.add_child(UI.spacer())
-	stones_label = _counter(th, "石", Color("5fd3e8"))
-	frag_label = _counter(th, "かけら", Color("f2a5c8"))
+	var dv := UI.tag("", UI.LIME, 11)
+	div_label = dv.get_child(0)
+	dv.size_flags_vertical = SIZE_SHRINK_CENTER
+	th.add_child(dv)
+	var st := UI.hbox(4)
+	st.add_child(UI.label("◆", 12, UI.CYAN))
+	stones_label = UI.label("0", 14, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true)
+	st.add_child(stones_label)
+	th.add_child(st)
 	top.add_child(th)
 	root.add_child(top)
 
 	content = MarginContainer.new()
 	content.size_flags_vertical = SIZE_EXPAND_FILL
 	for side in ["left", "right", "top", "bottom"]:
-		content.add_theme_constant_override("margin_" + side, 8)
+		content.add_theme_constant_override("margin_" + side, 10)
 	root.add_child(content)
 
 	# 下のタブ
 	var bottom := PanelContainer.new()
-	bottom.add_theme_stylebox_override("panel", UI.sbox(Color("fff6e6"), 0, UI.LINE, 0, 4))
-	var tabs := UI.hbox(4)
+	var bsb := UI.sbox(UI.PANEL, 0, UI.LINE, 0, 0)
+	bsb.border_width_top = 1
+	bottom.add_theme_stylebox_override("panel", bsb)
+	var tabs := UI.hbox(0)
 	for t in TABS:
-		var b := UI.button(t[0], UI.GRAY, 13, 40)
+		var b := Button.new()
+		b.text = t[0]
+		b.custom_minimum_size.y = 50
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 13)
+		if UI.heavy_font:
+			b.add_theme_font_override("font", UI.heavy_font)
 		b.pressed.connect(show_screen.bind(t[0]))
 		tabs.add_child(b)
 		tab_buttons[t[0]] = b
@@ -62,7 +81,7 @@ func _ready() -> void:
 
 	toast_box = UI.vbox(4)
 	toast_box.set_anchors_and_offsets_preset(PRESET_TOP_WIDE)
-	toast_box.offset_top = 46
+	toast_box.offset_top = 52
 	toast_box.offset_left = 16
 	toast_box.offset_right = -16
 	toast_box.mouse_filter = MOUSE_FILTER_IGNORE
@@ -71,30 +90,16 @@ func _ready() -> void:
 	Game.changed.connect(_refresh_top)
 	Game.toast.connect(show_toast)
 	_refresh_top()
-	show_screen("試合")
-
-
-func _counter(parent: Control, kind: String, color: Color) -> Label:
-	var p := PanelContainer.new()
-	var sb := UI.sbox(Color(0, 0, 0, 0.18), 10, Color(0, 0, 0, 0), 0, 2)
-	sb.content_margin_left = 8
-	sb.content_margin_right = 8
-	p.add_theme_stylebox_override("panel", sb)
-	var h := UI.hbox(4)
-	h.add_child(UI.label("◆", 12, color))
-	var l := UI.label("0", 13, Color.WHITE)
-	h.add_child(l)
-	p.add_child(h)
-	parent.add_child(p)
-	return l
+	show_screen("編成")
 
 
 func _refresh_top() -> void:
 	stones_label.text = str(Game.save.stones)
-	frag_label.text = str(Game.save.fragments)
+	div_label.text = "%d部" % Game.division()
 
 
 func show_screen(tab: String) -> void:
+	current = tab
 	UI.clear(content)
 	for t in TABS:
 		if t[0] == tab:
@@ -102,19 +107,24 @@ func show_screen(tab: String) -> void:
 			s.size_flags_vertical = SIZE_EXPAND_FILL
 			content.add_child(s)
 	for k in tab_buttons:
-		var col: Color = UI.ORANGE if k == tab else UI.GRAY
-		for st in ["normal", "hover", "pressed"]:
-			var sb: StyleBoxFlat = tab_buttons[k].get_theme_stylebox(st).duplicate()
-			sb.bg_color = col if st == "normal" else (col.lightened(0.12) if st == "hover" else col.darkened(0.12))
-			sb.border_color = col.darkened(0.25)
-			tab_buttons[k].add_theme_stylebox_override(st, sb)
+		var on: bool = k == tab
+		var b: Button = tab_buttons[k]
+		for stn in ["normal", "hover", "pressed"]:
+			var sb := UI.sbox(Color(UI.CYAN, 0.08) if on else Color(0, 0, 0, 0), 0, UI.CYAN, 0, 0)
+			sb.border_width_top = 3 if on else 0
+			b.add_theme_stylebox_override(stn, sb)
+		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		for fc in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			b.add_theme_color_override(fc, UI.CYAN if on else UI.SUB)
 
 
 func show_toast(text: String) -> void:
-	var p := UI.panel(Color("fff3b0"), 8)
+	var p := UI.panel(UI.PANEL2, 10, UI.LIME)
 	p.mouse_filter = MOUSE_FILTER_IGNORE
 	p.add_child(UI.wrap_label(text, 13))
 	toast_box.add_child(p)
+	while toast_box.get_child_count() > 3:
+		toast_box.get_child(0).free()
 	var tw := create_tween()
 	tw.tween_interval(3.0)
 	tw.tween_property(p, "modulate:a", 0.0, 0.5)
@@ -123,12 +133,36 @@ func show_toast(text: String) -> void:
 
 func _make_theme() -> Theme:
 	var t := Theme.new()
-	# Webでも日本語が出るようにフォントを同梱。足りない字はOSのフォントで補う
-	var f: FontFile = load("res://assets/fonts/MPLUSRounded1c-Bold.ttf")
-	var sys := SystemFont.new()
-	sys.font_names = PackedStringArray(["Yu Gothic UI", "Meiryo", "Hiragino Sans", "Noto Sans CJK JP", "sans-serif"])
-	f.fallbacks = [sys]
+	# Webでも日本語が出るようにフォントを同梱（Noto Sans JP 可変フォント）
+	var base: FontFile = load("res://assets/fonts/NotoSansJP.ttf")
+	var wght := TextServerManager.get_primary_interface().name_to_tag("wght")
+	var f := FontVariation.new()
+	f.base_font = base
+	f.variation_opentype = {wght: 600}
+	var h := FontVariation.new()
+	h.base_font = base
+	h.variation_opentype = {wght: 900}
+	UI.heavy_font = h
 	t.default_font = f
 	t.default_font_size = 14
 	t.set_color("font_color", "Label", UI.INK)
+	# SpinBox や OptionButton などの標準部品もダークに
+	var field := UI.sbox(UI.PANEL2, 3, UI.LINE, 1, 6)
+	for type in ["LineEdit", "OptionButton"]:
+		t.set_stylebox("normal", type, field)
+		t.set_color("font_color", type, UI.INK)
+	t.set_stylebox("focus", "LineEdit", UI.sbox(UI.PANEL2, 3, UI.CYAN, 1, 6))
+	for stn in ["hover", "pressed", "focus"]:
+		t.set_stylebox(stn, "OptionButton", UI.sbox(UI.PANEL2.lightened(0.05), 3, UI.CYAN, 1, 6))
+	t.set_stylebox("panel", "PopupMenu", UI.sbox(UI.PANEL, 4, UI.LINE, 1, 4))
+	t.set_color("font_color", "PopupMenu", UI.INK)
+	t.set_color("font_hover_color", "PopupMenu", UI.CYAN)
+	t.set_stylebox("hover", "PopupMenu", UI.sbox(UI.PANEL2, 2, UI.LINE, 0, 2))
+	var grab := UI.sbox(UI.LINE, 3, UI.LINE, 0, 0)
+	grab.content_margin_left = 3
+	grab.content_margin_right = 3
+	t.set_stylebox("scroll", "VScrollBar", UI.sbox(Color(0, 0, 0, 0), 0, UI.LINE, 0, 0))
+	t.set_stylebox("grabber", "VScrollBar", grab)
+	t.set_stylebox("grabber_highlight", "VScrollBar", grab)
+	t.set_stylebox("grabber_pressed", "VScrollBar", UI.sbox(UI.CYAN, 3, UI.CYAN, 0, 0))
 	return t

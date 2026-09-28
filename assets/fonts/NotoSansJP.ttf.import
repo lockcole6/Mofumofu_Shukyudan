@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://cfxtb0flrjhpi"
-path="res://.godot/imported/MPLUSRounded1c-Bold.ttf-e5e3f7fd3a6678041959b308dfea25d4.fontdata"
+uid="uid://d3hjlwu212r2k"
+path="res://.godot/imported/NotoSansJP.ttf-2659246e986fc2d136c17e42de851678.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/MPLUSRounded1c-Bold.ttf"
-dest_files=["res://.godot/imported/MPLUSRounded1c-Bold.ttf-e5e3f7fd3a6678041959b308dfea25d4.fontdata"]
+source_file="res://assets/fonts/NotoSansJP.ttf"
+dest_files=["res://.godot/imported/NotoSansJP.ttf-2659246e986fc2d136c17e42de851678.fontdata"]
 
 [params]
 

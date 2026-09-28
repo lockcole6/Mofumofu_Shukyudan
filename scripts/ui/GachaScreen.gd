@@ -12,49 +12,69 @@ func _ready() -> void:
 
 func build() -> void:
 	UI.clear(self)
-	# バナー
-	var banner := UI.panel(Color("ffe3ef"), 12)
-	var bv := UI.vbox(6)
-	bv.add_child(UI.label("もふもふロッカーガチャ", 20, Color("c0407a"), HORIZONTAL_ALIGNMENT_CENTER))
-	bv.add_child(UI.label("★4 特別枠「ボールの精」「ゴールポストの守り神」登場中！", 11, UI.INK, HORIZONTAL_ALIGNMENT_CENTER))
-	var feat := UI.hbox(10)
-	feat.alignment = BoxContainer.ALIGNMENT_CENTER
-	for id in [19, 16, 17, 18, 20]:
-		feat.add_child(UI.icon(Game.chars[id], false, false, 52))
-	bv.add_child(feat)
-	banner.add_child(bv)
-	add_child(banner)
+	add_child(UI.title("ロッカーガチャ", "1回 ◆%d" % Game.GACHA_COST))
 
-	# 確率・天井
-	var info := UI.panel()
-	var iv := UI.vbox(4)
+	# 排出率
+	var info := UI.panel(UI.PANEL, 12)
+	var iv := UI.vbox(6)
 	var r: Array = Game.save.debug.rates
 	var total := 0.0
 	for x in r:
 		total += float(x)
-	var parts := []
 	for i in 4:
-		parts.append("%s %.1f%%" % [UI.stars(i + 1), 100.0 * float(r[i]) / maxf(total, 0.001)])
-	iv.add_child(UI.label("  ".join(PackedStringArray(parts)), 12, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
-	iv.add_child(UI.label("色違い %.1f%%（全キャラ共通）" % float(Game.save.debug.shiny), 12, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
-	iv.add_child(UI.label("★3以上確定まで あと %d 回" % Game.pity_left(), 15, UI.INK, HORIZONTAL_ALIGNMENT_CENTER))
-	iv.add_child(UI.label("被りは強化（最大Lv%d）→ その後はユニフォームのかけらに" % Game.MAX_LV, 11, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
+		var row := UI.hbox(8)
+		var st := UI.label(UI.stars(i + 1), 13, UI.RARITY_COLORS[i + 1])
+		st.custom_minimum_size.x = 60
+		row.add_child(st)
+		var pct := 100.0 * float(r[i]) / maxf(total, 0.001)
+		var b := UI.bar(pct, 100, UI.RARITY_COLORS[i + 1], 4)
+		b.size_flags_horizontal = SIZE_EXPAND_FILL
+		row.add_child(b)
+		var pl := UI.label("%.1f%%" % pct, 12, UI.INK, HORIZONTAL_ALIGNMENT_RIGHT, true)
+		pl.custom_minimum_size.x = 48
+		row.add_child(pl)
+		iv.add_child(row)
 	info.add_child(iv)
 	add_child(info)
 
-	var sp := Control.new()
-	sp.size_flags_vertical = SIZE_EXPAND_FILL
+	var pity := UI.panel(UI.PANEL, 12, UI.GOLD)
+	var pv := UI.vbox(4)
+	var ph := UI.hbox()
+	ph.add_child(UI.label("★3以上確定まで", 12, UI.SUB))
+	ph.add_child(UI.spacer())
+	ph.add_child(UI.label("あと %d 回" % Game.pity_left(), 14, UI.GOLD, HORIZONTAL_ALIGNMENT_RIGHT, true))
+	pv.add_child(ph)
+	pv.add_child(UI.bar(int(Game.save.pity), int(Game.save.debug.pity), UI.GOLD, 4))
+	pity.add_child(pv)
+	add_child(pity)
+
+	# 余りの売却
+	var sur := Game.surplus_total()
+	var sp := UI.panel(UI.PANEL, 12)
+	var sh := UI.hbox(8)
+	var sv := UI.vbox(0)
+	sv.add_child(UI.label("被りの余りを売却", 12, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	sv.add_child(UI.label("スキル最大に必要な分は残す（余り%d体）" % sur.x, 10, UI.SUB))
+	sv.size_flags_horizontal = SIZE_EXPAND_FILL
+	sh.add_child(sv)
+	var sell := UI.button("◆ +%d" % sur.y, "ghost", 13, 34)
+	sell.disabled = sur.x == 0
+	sell.pressed.connect(func():
+		Game.toast.emit("余り%d体を売却して ◆%d を手に入れた" % [sur.x, Game.sell_all_surplus()]))
+	sh.add_child(sell)
+	sp.add_child(sh)
 	add_child(sp)
 
+	add_child(UI.spacer(true))
+	add_child(UI.label("被りはスキル強化の素材になる", 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
 	var btns := UI.hbox(10)
 	for n in [1, 10]:
-		var b := UI.button("%d回ひく\n◆%d" % [n, Game.GACHA_COST * n], Color("e35d8f") if n == 10 else UI.ORANGE, 16, 64)
+		var b := UI.button("%d回  ◆%d" % [n, Game.GACHA_COST * n], "pink" if n == 10 else "primary", 16, 56)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
 		b.disabled = not Game.can_pull(n)
 		b.pressed.connect(_pull.bind(n))
 		btns.add_child(b)
 	add_child(btns)
-	add_child(UI.label("ガチャ石は試合の勝利や図鑑ページのコンプで手に入る", 11, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
 
 
 func _pull(n: int) -> void:

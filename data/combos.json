@@ -1,0 +1,19 @@
+[
+  {"name": "もふもふ最前線", "ids": [1, 5, 23], "type": "team_both", "value": 5},
+  {"name": "のんびり日和", "ids": [4, 10], "type": "team_def", "value": 6},
+  {"name": "草原ダッシュ", "ids": [7, 5, 21], "type": "team_atk", "value": 8},
+  {"name": "森の仲間", "ids": [2, 22, 23], "type": "chance", "value": 30},
+  {"name": "海のパスワーク", "ids": [9, 26, 30], "type": "team_atk", "value": 8},
+  {"name": "氷の壁", "ids": [3, 24, 29], "type": "team_def", "value": 10},
+  {"name": "空中戦", "ids": [25, 12], "type": "finisher", "value": 6},
+  {"name": "角コンビ", "ids": [11, 34], "type": "team_atk", "value": 10},
+  {"name": "化かし合い", "ids": [2, 13, 37], "type": "opp_atk_down", "value": 10},
+  {"name": "夜の見張り", "ids": [8, 33], "type": "team_def", "value": 8},
+  {"name": "炎と雷", "ids": [16, 15, 31], "type": "finisher", "value": 12},
+  {"name": "伝説の三柱", "ids": [16, 17, 18], "type": "team_both", "value": 10},
+  {"name": "ゴール前の守護", "ids": [20, 10], "type": "shrink", "value": 8},
+  {"name": "キックオフ", "ids": [19, 39], "type": "chance", "value": 50},
+  {"name": "ネコ科の誇り", "ids": [1, 7, 40], "type": "team_atk", "value": 10},
+  {"name": "空の王者", "ids": [35, 27, 25], "type": "team_def", "value": 8},
+  {"name": "白銀の牙", "ids": [38, 29], "type": "team_atk", "value": 10}
+]
