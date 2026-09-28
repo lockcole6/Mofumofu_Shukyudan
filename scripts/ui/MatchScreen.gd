@@ -11,6 +11,7 @@ const ZONE_COLORS := {"up": Color("3ddc97"), "champion": Color("ffc83d"), "down"
 
 var result := {}
 var scouted := false
+var pick_i := -1   # スカウト候補として選んでいる相手の番号
 var _view := 0   # 画面を切り替えるたびに増やす。試合の演出が古い画面に書き込まないように
 
 
@@ -212,6 +213,7 @@ func _kickoff() -> void:
 	var L: Dictionary = Game.save.league
 	result = Game.play_round(Game.save.tactic)
 	scouted = false
+	pick_i = -1
 	_view += 1
 	var view := _view
 	UI.clear(self)
@@ -313,8 +315,11 @@ func _show_result() -> void:
 	rh.add_child(rw)
 	rv.add_child(rh)
 	if o == "win":
-		rv.add_child(UI.label("スカウトする選手を1体えらぶ（MVPは成功率100%）", 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
+		rv.add_child(UI.label("スカウトする選手をえらんで確定（長押しで詳細）", 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
 		var g := UI.grid(4, 4)
+		var cards := []
+		var go := UI.button("スカウトする選手をえらんでね", "primary", 13, 36)
+		go.disabled = true
 		for i in result.opp.size():
 			var m: Dictionary = result.opp[i]
 			var c: Dictionary = Game.chars[m.id]
@@ -328,11 +333,29 @@ func _show_result() -> void:
 				lines.append(UI.tag("MVP", UI.GOLD, 8))
 			elif not Game.owned(m.id):
 				lines.append(UI.tag("NEW", UI.PINK, 8))
-			var card = UI.card(m.id, false, lines, _scout.bind(i, rv), 34)
+			var pick := func():
+				if scouted:
+					return
+				if rate <= 0:
+					Game.toast.emit("ガチャ限定の選手はスカウトできない")
+					return
+				pick_i = i
+				for k in cards.size():
+					cards[k].selected = k == i
+					cards[k].queue_redraw()
+				go.disabled = false
+				go.text = "%s をスカウトする（成功率%d%%）" % [c.name, rate]
+			var card = UI.card(m.id, false, lines, pick, 34, func(): CharDetail.open(self, m.id, {"readonly": true}))
 			card.size_flags_horizontal = SIZE_EXPAND_FILL
 			card.dim = rate == 0
+			cards.append(card)
 			g.add_child(card)
 		rv.add_child(g)
+		go.pressed.connect(func():
+			if pick_i >= 0 and not scouted:
+				go.queue_free()
+				_scout(pick_i, rv))
+		rv.add_child(go)
 	else:
 		rv.add_child(UI.label("負けても選手は失わない。編成や作戦を見直そう", 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
 	# 同じ節のほかの試合

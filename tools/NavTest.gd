@@ -118,7 +118,7 @@ func _mouse(pos: Vector2, pressed: bool) -> void:
 	e.pressed = pressed
 	e.position = pos
 	e.global_position = pos
-	get_viewport().push_input(e)
+	get_viewport().push_input(e, true)
 
 
 func _move(pos: Vector2) -> void:
@@ -126,4 +126,4 @@ func _move(pos: Vector2) -> void:
 	e.position = pos
 	e.global_position = pos
 	e.button_mask = MOUSE_BUTTON_MASK_LEFT
-	get_viewport().push_input(e)
+	get_viewport().push_input(e, true)

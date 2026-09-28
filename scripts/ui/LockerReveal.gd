@@ -2,6 +2,7 @@ extends Control
 ## ガチャ演出：ロッカーの扉の色でレア度がわかり、開くと選手が出てくる。
 
 const UI = preload("res://scripts/ui/UI.gd")
+const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 
 var results: Array = []
 var idx := 0
@@ -154,13 +155,14 @@ func _show_summary() -> void:
 		if c is Button:
 			c.queue_free()
 	stage.add_child(UI.label("RESULT", 20, UI.CYAN, HORIZONTAL_ALIGNMENT_CENTER, true))
+	stage.add_child(UI.label("長押しで詳細", 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
 	var g := UI.grid(5, 5)
 	g.size_flags_horizontal = SIZE_SHRINK_CENTER
 	for res in results:
 		var c: Dictionary = Game.chars[res.id]
 		var lines := [c.name]
 		lines.append(UI.tag("NEW", UI.PINK, 8) if res.new else UI.label("+1", 9, UI.CYAN, HORIZONTAL_ALIGNMENT_CENTER))
-		var card = UI.card(res.id, false, lines, Callable(), 44)
+		var card = UI.card(res.id, false, lines, Callable(), 44, func(): CharDetail.open(self, res.id, {"readonly": true}))
 		card.custom_minimum_size.x = 62
 		g.add_child(card)
 	stage.add_child(g)

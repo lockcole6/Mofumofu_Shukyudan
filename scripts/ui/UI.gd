@@ -164,18 +164,30 @@ static func tag(text: String, color: Color, size := 10, filled := true) -> Panel
 
 
 ## タップできる領域。スクロール中のドラッグはタップ扱いしない。
-static func on_tap(c: Control, cb: Callable) -> void:
+## on_long を渡すと、長押し（0.45秒）でそちらを呼ぶ。長押ししたときはタップ扱いにしない。
+static func on_tap(c: Control, cb: Callable, on_long := Callable()) -> void:
 	c.mouse_filter = Control.MOUSE_FILTER_PASS
-	var st := {"down": false, "pos": Vector2.ZERO}
+	var st := {"down": false, "pos": Vector2.ZERO, "moved": false, "long": false, "n": 0}
 	c.gui_input.connect(func(e: InputEvent):
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 			if e.pressed:
 				st.down = true
+				st.moved = false
+				st.long = false
 				st.pos = e.global_position
+				st.n += 1
+				if on_long.is_valid():
+					var my: int = st.n
+					c.get_tree().create_timer(0.45).timeout.connect(func():
+						if is_instance_valid(c) and st.down and not st.moved and st.n == my:
+							st.long = true
+							on_long.call())
 			elif st.down:
 				st.down = false
-				if e.global_position.distance_to(st.pos) < 12.0:
+				if not st.long and e.global_position.distance_to(st.pos) < 12.0 and cb.is_valid():
 					cb.call()
+		elif e is InputEventMouseMotion and st.down and e.global_position.distance_to(st.pos) >= 12.0:
+			st.moved = true
 	)
 
 
@@ -186,11 +198,11 @@ static func ignore_mouse(n: Node) -> void:
 		ignore_mouse(c)
 
 
-static func card(id: int, silhouette := false, lines := [], on_click := Callable(), icon_size := 44) -> Control:
+static func card(id: int, silhouette := false, lines := [], on_click := Callable(), icon_size := 44, on_long := Callable()) -> Control:
 	var cc = CharCard.new()
 	cc.setup(id, silhouette, lines, icon_size)
-	if on_click.is_valid():
-		on_tap(cc, on_click)
+	if on_click.is_valid() or on_long.is_valid():
+		on_tap(cc, on_click, on_long)
 	return cc
 
 
