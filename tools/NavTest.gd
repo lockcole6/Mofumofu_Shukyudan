@@ -5,6 +5,27 @@ const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 
 
 func _ready() -> void:
+	# 0) v2（4x4マス）のセーブを列形式に変換できるか
+	var v2 := {"version": 2, "stones": 123, "roster": {"4": {"slv": 1, "copies": 0}, "18": {"slv": 1, "copies": 0}, "1": {"slv": 1, "copies": 0}},
+		"formation": [{"id": 1, "cell": 6}, {"id": 4, "cell": 13}, {"id": 18, "cell": 14}],
+		"league": {"division": 5, "season": 1, "round": 0, "teams": [{"name": "a", "player": true}, {"name": "b", "members": [{"id": 3, "cell": 9}, {"id": 10, "cell": 13}]}],
+			"schedule": [], "table": []}}
+	var f := FileAccess.open(Game.SAVE_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify(v2))
+	f.close()
+	Game.load_game()
+	print("migrated: stones=", Game.save.stones, " formation=", Game.save.formation, " ai=", Game.save.league.teams[1].members)
+	# ルール：GKは1人（入れると交代）、列は4人まで
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
+	Game.load_game()
+	Game.add_character(10)
+	Game.add_character(22)
+	print("GK before: ", Game.row_ids("GK"), " place GK: '", Game.place(10, "GK"), "' after: ", Game.row_ids("GK"), " team=", Game.save.formation.size())
+	Game.remove_from_team(3)
+	Game.place(22, "攻")
+	print("攻: ", Game.row_ids("攻"), " formation ", Game.formation_name())
+	Game.place(3, "攻")
+	print("攻 full try: '", Game.place(9, "攻"), "'")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
 	for id in Game.chars:
@@ -17,7 +38,7 @@ func _ready() -> void:
 	main.show_screen("編成")
 	await _frames()
 	Game.remove_from_team(2)
-	main.content.get_child(0)._picker(1)
+	main.content.get_child(0)._picker("攻")
 	await _frames()
 	var layer: Node = get_tree().root.get_child(get_tree().root.get_child_count() - 1)
 	var sc: ScrollContainer = layer.find_children("*", "ScrollContainer", true, false)[0]

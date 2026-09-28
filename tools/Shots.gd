@@ -31,10 +31,10 @@ func _ready() -> void:
 	_close_modals(main)
 	Game.remove_from_team(2)
 	ts.build()
-	ts._picker(1)
+	ts._picker("攻")
 	await _shot("編成_選択")
 	_close_modals(main)
-	Game.place(2, 1)
+	Game.place(2, "攻")
 	# 試合
 	Game.save.settings.speed = "instant"
 	main.show_screen("試合")

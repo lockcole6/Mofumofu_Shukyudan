@@ -125,13 +125,23 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 		ah.add_child(sell)
 		v.add_child(ah)
 		if opts.get("team", false) and Game.in_team(id):
-			var rm := UI.button("編成から外す", "danger", 13, 36)
+			var th := UI.hbox(8)
+			var sw := UI.button("入れ替える", "ghost", 13, 36)
+			sw.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			sw.pressed.connect(func():
+				close.call()
+				if opts.has("on_swap"):
+					opts.on_swap.call())
+			th.add_child(sw)
+			var rm := UI.button("外す", "danger", 13, 36)
+			rm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			rm.pressed.connect(func():
 				Game.remove_from_team(id)
 				if opts.has("on_change"):
 					opts.on_change.call()
 				close.call())
-			v.add_child(rm)
+			th.add_child(rm)
+			v.add_child(th)
 	var cl := UI.button("とじる", "ghost", 13, 36)
 	cl.pressed.connect(close)
 	v.add_child(cl)

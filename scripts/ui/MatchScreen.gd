@@ -142,28 +142,36 @@ func _table(order: Array, T: Array) -> PanelContainer:
 	return p
 
 
-## 相手のメンバーを4x4の小さなピッチで見せる
-func _mini_pitch(members: Array) -> GridContainer:
-	var g := UI.grid(4, 3)
-	var by_cell := {}
-	for m in members:
-		by_cell[int(m.cell)] = m
-	for cell in 16:
-		if by_cell.has(cell):
-			var m: Dictionary = by_cell[cell]
+## 相手のメンバーを列ごとに中央寄せで見せる
+func _mini_pitch(members: Array) -> VBoxContainer:
+	var v := UI.vbox(3)
+	for row in Game.GRID_ROWS:
+		var h := UI.hbox(3)
+		var lab := UI.label(row, 9, UI.ROW_COLORS[row], HORIZONTAL_ALIGNMENT_CENTER, true)
+		lab.custom_minimum_size.x = 22
+		lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lab.size_flags_vertical = SIZE_FILL
+		h.add_child(lab)
+		var center := CenterContainer.new()
+		center.size_flags_horizontal = SIZE_EXPAND_FILL
+		var cards := UI.hbox(3)
+		for m in members:
+			if m.row != row:
+				continue
 			var lines := []
 			if not Game.owned(m.id):
 				lines.append(UI.tag("NEW", UI.PINK, 8))
 			var card = UI.card(m.id, false, lines, func(): CharDetail.open(self, m.id, {"readonly": true}), 30)
-			card.size_flags_horizontal = SIZE_EXPAND_FILL
-			card.custom_minimum_size.y = 50
-			g.add_child(card)
-		else:
-			var e := Control.new()
-			e.custom_minimum_size = Vector2(10, 50)
-			e.size_flags_horizontal = SIZE_EXPAND_FILL
-			g.add_child(e)
-	return g
+			card.custom_minimum_size = Vector2(52, 48)
+			cards.add_child(card)
+		center.add_child(cards)
+		h.add_child(center)
+		var r := Control.new()
+		r.custom_minimum_size.x = 22
+		h.add_child(r)
+		v.add_child(h)
+	v.add_child(UI.label(Game.formation_name(members), 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER, true))
+	return v
 
 
 func _kickoff() -> void:

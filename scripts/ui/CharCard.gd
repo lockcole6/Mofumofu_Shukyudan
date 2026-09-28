@@ -1,6 +1,6 @@
 extends MarginContainer
 ## キャラのカード。レア度の色で下から光るグラデーションを描く。
-## 編成グリッドではドラッグで移動できる（drag_cell / on_drop を設定したとき）。
+## 編成ではドラッグで移動できる（draggable / on_drop を設定したとき）。
 
 const UI = preload("res://scripts/ui/UI.gd")
 
@@ -9,8 +9,8 @@ var silhouette := false
 var rcol := Color.GRAY
 var selected := false
 var dim := false
-var drag_cell := -1
-var on_drop := Callable()
+var draggable := false
+var on_drop := Callable()   # (ドラッグしてきた選手id, このカードの選手id)
 
 
 func setup(id: int, sil := false, lines := [], icon_size := 44) -> void:
@@ -63,7 +63,7 @@ func _draw() -> void:
 
 
 func _get_drag_data(_at: Vector2) -> Variant:
-	if drag_cell < 0 or cid == 0:
+	if not draggable or cid == 0:
 		return null
 	var p := UI.icon(Game.chars[cid], false, 56)
 	p.modulate.a = 0.85
@@ -71,13 +71,12 @@ func _get_drag_data(_at: Vector2) -> Variant:
 	holder.add_child(p)
 	p.position = Vector2(-28, -28)
 	set_drag_preview(holder)
-	return {"cell": drag_cell}
+	return {"id": cid}
 
 
 func _can_drop_data(_at: Vector2, data: Variant) -> bool:
-	return drag_cell >= 0 and data is Dictionary and data.has("cell")
+	return on_drop.is_valid() and data is Dictionary and data.has("id") and int(data.id) != cid
 
 
 func _drop_data(_at: Vector2, data: Variant) -> void:
-	if on_drop.is_valid():
-		on_drop.call(int(data.cell), drag_cell)
+	on_drop.call(int(data.id), cid)

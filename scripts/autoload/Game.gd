@@ -5,9 +5,10 @@ signal changed
 signal toast(text: String)
 
 const SAVE_PATH := "user://save.json"
-const SAVE_VERSION := 2
-## 編成グリッドは4x4。上から 攻・中・守・GK の列。
+const SAVE_VERSION := 3
+## 編成は列ごと。上から 攻・中・守・GK。GKは1人、ほかの列は最大4人。
 const GRID_ROWS := ["攻", "中", "守", "GK"]
+const ROW_MAX := {"攻": 4, "中": 4, "守": 4, "GK": 1}
 const HABITATS := ["草原", "森", "海", "雪山", "空", "伝説", "蹴球"]
 const TACTICS := ["攻める", "バランス", "守る"]
 const TACTIC_DESC := {
@@ -20,7 +21,7 @@ const GACHA_COST := 10
 const MAX_SLV := 5
 const SELL_VALUE := {1: 2, 2: 6, 3: 20, 4: 50}
 const PAGE_REWARD := 200
-const STARTERS := [[4, 13], [3, 9], [6, 10], [1, 5], [9, 6], [2, 1], [5, 2]]  # [id, cell]
+const STARTERS := [[4, "GK"], [3, "守"], [6, "守"], [1, "中"], [9, "中"], [2, "攻"], [5, "攻"]]
 
 ## ディビジョン（5部が一番下、1部が一番上）
 const COST_CAP := {5: 12, 4: 14, 3: 16, 2: 18, 1: 20}
@@ -238,7 +239,7 @@ func _default_save() -> Dictionary:
 	}
 	for st in STARTERS:
 		s.roster[str(st[0])] = {"slv": 1, "copies": 0}
-		s.formation.append({"id": st[0], "cell": st[1]})
+		s.formation.append({"id": st[0], "row": st[1]})
 	return s
 
 
@@ -247,15 +248,39 @@ func load_game() -> void:
 	var data = null
 	if FileAccess.file_exists(SAVE_PATH):
 		data = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	if data is Dictionary and int(data.get("version", 0)) == 2:
+		_migrate_v2(data)
 	if data is Dictionary and int(data.get("version", 0)) == SAVE_VERSION:
 		for k in data:
 			save[k] = data[k]
 		for f in save.formation:
 			f.id = int(f.id)
-			f.cell = int(f.cell)
 	if save.league.is_empty():
 		new_season(5)
 	_lineup_cache.clear()
+
+
+## v2 は4x4のマス番号で持っていたので、列に直す（GKが複数なら余りは守へ）
+func _migrate_v2(data: Dictionary) -> void:
+	var conv := func(list: Array) -> Array:
+		var sorted := list.duplicate()
+		sorted.sort_custom(func(a, b): return int(a.cell) < int(b.cell))
+		var out := []
+		var gk := false
+		for f in sorted:
+			var row := row_of(int(f.cell))
+			if row == "GK":
+				if gk:
+					row = "守"
+				gk = true
+			out.append({"id": int(f.id), "row": row})
+		return out
+	data.formation = conv.call(data.formation)
+	if data.has("league") and data.league.has("teams"):
+		for t in data.league.teams:
+			if t.has("members"):
+				t.members = conv.call(t.members)
+	data.version = 3
 
 
 func save_game() -> void:
@@ -383,11 +408,27 @@ func formation_cost(formation = null) -> int:
 	return c
 
 
-func formation_at(cell: int) -> int:
+## その列に並んでいる選手（並び順どおり）
+func row_ids(row: String) -> Array:
+	return save.formation.filter(func(f): return f.row == row).map(func(f): return int(f.id))
+
+
+func row_of_id(id: int) -> String:
 	for f in save.formation:
-		if int(f.cell) == cell:
-			return int(f.id)
-	return 0
+		if int(f.id) == id:
+			return f.row
+	return ""
+
+
+## 守-中-攻 の人数（例 "2-2-2"）
+func formation_name(entries: Array = []) -> String:
+	if entries.is_empty():
+		entries = formation_entries()
+	var n := {"守": 0, "中": 0, "攻": 0}
+	for p in entries:
+		if n.has(p.row):
+			n[p.row] += 1
+	return "%d-%d-%d" % [n["守"], n["中"], n["攻"]]
 
 
 func in_team(id: int) -> bool:
@@ -398,14 +439,29 @@ func formation_entries() -> Array:
 	var out := []
 	for f in save.formation:
 		if owned(int(f.id)):
-			out.append({"id": int(f.id), "row": row_of(int(f.cell)), "cell": int(f.cell), "slv": slv(int(f.id))})
+			out.append({"id": int(f.id), "row": f.row, "slv": slv(int(f.id))})
 	return out
 
 
-## 選手を置く。置けないときは理由を返す。
-func place(id: int, cell: int) -> String:
-	var next: Array = save.formation.filter(func(f): return int(f.id) != id and int(f.cell) != cell)
-	next.append({"id": id, "cell": cell})
+## 選手を列に置く（replace を指定するとその選手と交代）。置けないときは理由を返す。
+## すでに出場中の選手なら列を移動する。GKの枠が埋まっていれば入れ替える。
+func place(id: int, row: String, replace := 0) -> String:
+	var from := row_of_id(id)
+	if from != "" and replace != 0 and row_of_id(replace) != "":
+		swap(id, replace)
+		return ""
+	var next: Array = save.formation.filter(func(f): return int(f.id) != id and int(f.id) != replace)
+	var in_row := next.filter(func(f): return f.row == row)
+	if in_row.size() >= ROW_MAX[row]:
+		if row == "GK":
+			# 今のGKは元いた列へ（ベンチからなら外れる）
+			var old = in_row[0]
+			next.erase(old)
+			if from != "":
+				next.append({"id": int(old.id), "row": from})
+		else:
+			return "%sの列は%d人まで" % [row, ROW_MAX[row]]
+	next.append({"id": id, "row": row})
 	if next.size() > TEAM_SIZE:
 		return "出場できるのは%d体まで" % TEAM_SIZE
 	if formation_cost(next) > cost_cap():
@@ -420,18 +476,19 @@ func remove_from_team(id: int) -> void:
 	save_game()
 
 
-func move_cell(from_cell: int, to_cell: int) -> void:
+## 出場中の2人の位置を入れ替える
+func swap(a: int, b: int) -> void:
 	for f in save.formation:
-		if int(f.cell) == from_cell:
-			f.cell = to_cell
-		elif int(f.cell) == to_cell:
-			f.cell = from_cell
+		if int(f.id) == a:
+			f.id = b
+		elif int(f.id) == b:
+			f.id = a
 	save_game()
 
 
 ## コスト上限の中で強そうな7体を自動で並べる
 func auto_formation() -> void:
-	var slots := [["GK", 13], ["攻", 1], ["攻", 2], ["中", 5], ["中", 6], ["守", 9], ["守", 10]]
+	var slots := [["GK"], ["攻"], ["攻"], ["中"], ["中"], ["守"], ["守"]]
 	var budget := cost_cap()
 	var used := {}
 	var out := []
@@ -452,7 +509,7 @@ func auto_formation() -> void:
 		if best != 0:
 			used[best] = true
 			budget -= chars[best].rarity
-			out.append({"id": best, "cell": slots[i][1]})
+			out.append({"id": best, "row": row})
 	save.formation = out
 	save_game()
 
@@ -700,13 +757,11 @@ func new_season(div: int) -> void:
 func _make_ai_members(div: int) -> Array:
 	var templates := [[1, 2, 2, 2], [1, 3, 2, 1], [1, 2, 3, 1], [1, 1, 3, 2], [1, 3, 1, 2]]
 	var t: Array = templates.pick_random()   # GK, 守, 中, 攻 の人数
-	var fill := [1, 2, 0, 3]
 	var rows := ["GK", "守", "中", "攻"]
-	var slots := []   # [pos, cell]
+	var slots := []   # [pos]
 	for i in 4:
-		var grid_row := GRID_ROWS.find(rows[i])
 		for n in t[i]:
-			slots.append([rows[i], grid_row * 4 + fill[n]])
+			slots.append([rows[i]])
 	var rar := []
 	for s in slots:
 		rar.append(1)
@@ -724,7 +779,7 @@ func _make_ai_members(div: int) -> Array:
 	for i in slots.size():
 		var id := _pick_ai_char(slots[i][0], rar[i], used)
 		used[id] = true
-		out.append({"id": id, "cell": slots[i][1]})
+		out.append({"id": id, "row": slots[i][0]})
 	return out
 
 
@@ -767,7 +822,7 @@ func lineup(team_i: int) -> Array:
 	var team: Dictionary = save.league.teams[team_i]
 	var out := []
 	for m in team.members:
-		out.append({"id": int(m.id), "cell": int(m.cell), "row": row_of(int(m.cell)), "slv": ai_slv(), "boost": DIV_BOOST[division()]})
+		out.append({"id": int(m.id), "row": m.row, "slv": ai_slv(), "boost": DIV_BOOST[division()]})
 	var limited := chars.keys().filter(func(id): return chars[id].limit != "" and available(id))
 	if not limited.is_empty() and randf() < 0.4:
 		var id: int = limited.pick_random()
