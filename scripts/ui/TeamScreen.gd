@@ -7,7 +7,7 @@ extends VBoxContainer
 const UI = preload("res://scripts/ui/UI.gd")
 const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 const CARD_W := 64
-const REMOVE_W := 64
+const REMOVE_W := 40
 const LIFT_TIME := 0.25
 
 var view := "ピッチ"   # ピッチ / スキル
@@ -181,8 +181,8 @@ func _start_drag(id: int) -> void:
 	zone.top_level = true
 	zone.z_index = 9
 	zone.mouse_filter = MOUSE_FILTER_IGNORE
-	zone.add_theme_stylebox_override("panel", UI.sbox(Color(UI.RED, 0.18), 4, Color(UI.RED, 0.6), 1, 4))
-	var zl := UI.label("外\nす\n\n→", 14, UI.RED, HORIZONTAL_ALIGNMENT_CENTER, true)
+	zone.add_theme_stylebox_override("panel", UI.sbox(Color(UI.RED, 0.18), 4, Color(UI.RED, 0.6), 1, 2))
+	var zl := UI.label("外\nす\n→", 12, UI.RED, HORIZONTAL_ALIGNMENT_CENTER, true)
 	zl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	zone.add_child(zl)
 	add_child(zone)

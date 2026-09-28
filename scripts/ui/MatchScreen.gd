@@ -324,7 +324,7 @@ func _show_result() -> void:
 			var m: Dictionary = result.opp[i]
 			var c: Dictionary = Game.chars[m.id]
 			var rate: int = result.scout_rates[i]
-			var lines: Array = [c.name]
+			var lines: Array = [c.name, UI.label(UI.stars(c.rarity), 9, UI.STAR, HORIZONTAL_ALIGNMENT_CENTER)]
 			if rate > 0:
 				lines.append(UI.label("%d%%" % rate, 10, UI.LIME, HORIZONTAL_ALIGNMENT_CENTER, true))
 			else:
