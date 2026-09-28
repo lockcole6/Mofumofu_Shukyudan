@@ -15,7 +15,6 @@ var div_label: Label
 var tab_buttons := {}
 var toast_box: VBoxContainer
 var current := ""
-var back_btn: Button
 
 
 func _ready() -> void:
@@ -37,10 +36,6 @@ func _ready() -> void:
 	tsb.content_margin_right = 12
 	top.add_theme_stylebox_override("panel", tsb)
 	var th := UI.hbox(8)
-	back_btn = UI.button("‹ 戻る", "ghost", 12, 28)
-	back_btn.size_flags_vertical = SIZE_SHRINK_CENTER
-	back_btn.pressed.connect(Nav.back)
-	th.add_child(back_btn)
 	var logo := UI.hbox(0)
 	logo.add_child(UI.label("もふもふ", 15, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
 	logo.add_child(UI.label("蹴球団", 15, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
@@ -92,16 +87,10 @@ func _ready() -> void:
 	toast_box.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(toast_box)
 
-	Nav.changed.connect(_refresh_back)
 	Game.changed.connect(_refresh_top)
 	Game.toast.connect(show_toast)
 	_refresh_top()
 	show_screen("試合", false)
-	_refresh_back()
-
-
-func _refresh_back() -> void:
-	back_btn.visible = Nav.has_back()
 
 
 func _refresh_top() -> void:
@@ -133,7 +122,7 @@ func show_screen(tab: String, record := true) -> void:
 		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		for fc in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 			b.add_theme_color_override(fc, UI.CYAN if on else UI.SUB)
-	_refresh_back.call_deferred()
+
 
 
 func show_toast(text: String) -> void:

@@ -180,7 +180,7 @@ func _show_summary() -> void:
 	g.size_flags_horizontal = SIZE_SHRINK_CENTER
 	for res in results:
 		var c: Dictionary = Game.chars[res.id]
-		var lines := [c.name]
+		var lines := [c.name, UI.label(UI.stars(c.rarity), 9, UI.STAR, HORIZONTAL_ALIGNMENT_CENTER)]
 		lines.append(UI.tag("NEW", UI.PINK, 8) if res.new else UI.label("+1", 9, UI.CYAN, HORIZONTAL_ALIGNMENT_CENTER))
 		var card = UI.card(res.id, false, lines, Callable(), 44, func(): CharDetail.open(self, res.id, {"readonly": true}))
 		card.custom_minimum_size.x = 62

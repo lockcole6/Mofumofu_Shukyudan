@@ -1,7 +1,6 @@
 extends MarginContainer
 ## キャラのカード。ポジションの色で縁取りと下からのグラデーションを描き、
 ## 左上にポジション（攻・中・守・GK）のバッジを出す。レア度は★の数で見せる。
-## 編成ではドラッグで移動できる（draggable / on_drop を設定したとき）。
 
 const UI = preload("res://scripts/ui/UI.gd")
 
@@ -14,8 +13,6 @@ var badge := ""             # 右上に出す小さなラベル（NEW など）
 var pos := ""
 var rarity := 0
 var _t := randf() * 10.0
-var draggable := false
-var on_drop := Callable()   # (ドラッグしてきた選手id, このカードの選手id)
 
 
 func setup(id: int, sil := false, lines := [], icon_size := 44) -> void:
@@ -96,23 +93,3 @@ func _draw() -> void:
 		draw_string(f2, Vector2(size.x - tw + 1, 10), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color.WHITE)
 	if dim:
 		draw_rect(r, Color(0, 0, 0, 0.55))
-
-
-func _get_drag_data(_at: Vector2) -> Variant:
-	if not draggable or cid == 0:
-		return null
-	var p := UI.icon(Game.chars[cid], false, 56)
-	p.modulate.a = 0.85
-	var holder := Control.new()
-	holder.add_child(p)
-	p.position = Vector2(-28, -28)
-	set_drag_preview(holder)
-	return {"id": cid}
-
-
-func _can_drop_data(_at: Vector2, data: Variant) -> bool:
-	return on_drop.is_valid() and data is Dictionary and data.has("id") and int(data.id) != cid
-
-
-func _drop_data(_at: Vector2, data: Variant) -> void:
-	on_drop.call(int(data.id), cid)

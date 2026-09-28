@@ -168,7 +168,7 @@ static func tag(text: String, color: Color, size := 10, filled := true) -> Panel
 ## on_long を渡すと、長押し（0.45秒）でそちらを呼ぶ。長押ししたときはタップ扱いにしない。
 static func on_tap(c: Control, cb: Callable, on_long := Callable()) -> void:
 	c.mouse_filter = Control.MOUSE_FILTER_PASS
-	var st := {"down": false, "pos": Vector2.ZERO, "moved": false, "long": false, "n": 0, "tw": null}
+	var st := {"down": false, "pos": Vector2.ZERO, "moved": false, "long": false, "n": 0}
 	c.gui_input.connect(func(e: InputEvent):
 		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
 			if e.pressed:
@@ -179,30 +179,17 @@ static func on_tap(c: Control, cb: Callable, on_long := Callable()) -> void:
 				st.n += 1
 				if on_long.is_valid():
 					var my: int = st.n
-					# 押している間だけ少し縮めて、長押しが効いているのを見せる
-					c.pivot_offset = c.size / 2
-					st.tw = c.create_tween()
-					st.tw.tween_property(c, "scale", Vector2(0.92, 0.92), LONG_PRESS)
 					c.get_tree().create_timer(LONG_PRESS).timeout.connect(func():
 						if is_instance_valid(c) and st.down and not st.moved and st.n == my:
 							st.long = true
-							c.scale = Vector2.ONE
 							on_long.call())
 			elif st.down:
 				st.down = false
-				_unshrink(c, st)
 				if not st.long and e.global_position.distance_to(st.pos) < 12.0 and cb.is_valid():
 					cb.call()
 		elif e is InputEventMouseMotion and st.down and e.global_position.distance_to(st.pos) >= 18.0:
 			st.moved = true
-			_unshrink(c, st)
 	)
-
-
-static func _unshrink(c: Control, st: Dictionary) -> void:
-	if st.get("tw") and st.tw.is_valid():
-		st.tw.kill()
-	c.scale = Vector2.ONE
 
 
 static func ignore_mouse(n: Node) -> void:

@@ -76,10 +76,10 @@ func _ready() -> void:
 	await _frames()
 	Nav.back()
 	await _frames()
-	print("tab back -> ", main.current, "  back button visible: ", main.back_btn.visible)
+	print("tab back -> ", main.current)
 	Nav.back()
 	await _frames()
-	print("tab back -> ", main.current, "  back button visible: ", main.back_btn.visible)
+	print("tab back -> ", main.current)
 
 	# 4) 試合 → 戻るで順位表
 	Game.save.settings.speed = "instant"
