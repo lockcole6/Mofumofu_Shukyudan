@@ -30,6 +30,8 @@ class Door extends Control:
 
 
 func _ready() -> void:
+	set_meta("layer", true)
+	Nav.push(self, queue_free)
 	set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP
 	var bg := ColorRect.new()
@@ -165,5 +167,5 @@ func _show_summary() -> void:
 	var close := UI.button("とじる", "primary", 15, 42)
 	close.custom_minimum_size.x = 160
 	close.size_flags_horizontal = SIZE_SHRINK_CENTER
-	close.pressed.connect(queue_free)
+	close.pressed.connect(func(): Nav.close(self))
 	stage.add_child(close)

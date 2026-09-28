@@ -3,6 +3,7 @@ extends RefCounted
 
 const Sprites = preload("res://scripts/ui/Sprites.gd")
 const CharCard = preload("res://scripts/ui/CharCard.gd")
+const DragScroll = preload("res://scripts/ui/DragScroll.gd")
 
 const BG := Color("0c0f1d")
 const PANEL := Color("151a2e")
@@ -247,7 +248,7 @@ static func spacer(vertical := false) -> Control:
 
 
 static func scroll(child: Control) -> ScrollContainer:
-	var s := ScrollContainer.new()
+	var s: ScrollContainer = DragScroll.new()
 	s.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	s.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -265,9 +266,10 @@ static func segmented(options: Array, current: String, on_pick: Callable, size :
 	return h
 
 
-## 画面全体にかぶせるモーダル。背景タップで閉じる。閉じる関数を返す。
-static func modal(from: Node, content: Control, max_h := 560.0) -> Control:
+## 画面全体にかぶせるモーダル。背景タップ・×・戻るで閉じる。閉じるときは UI.close(root)
+static func modal(from: Node, content: Control) -> Control:
 	var root := Control.new()
+	root.set_meta("layer", true)
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.02, 0.06, 0.8)
@@ -275,7 +277,7 @@ static func modal(from: Node, content: Control, max_h := 560.0) -> Control:
 	root.add_child(dim)
 	dim.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			root.queue_free())
+			close(root))
 	var box := panel(PANEL, 12)
 	var sb: StyleBoxFlat = box.get_theme_stylebox("panel")
 	sb.border_color = Color(CYAN, 0.5)
@@ -287,5 +289,18 @@ static func modal(from: Node, content: Control, max_h := 560.0) -> Control:
 	var sc := scroll(content)
 	box.add_child(sc)
 	root.add_child(box)
+	var x := button("×", "ghost", 16, 34)
+	x.custom_minimum_size.x = 44
+	x.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	x.offset_left = -60
+	x.offset_right = -16
+	x.offset_top = 22
+	x.pressed.connect(func(): close(root))
+	root.add_child(x)
 	from.get_tree().root.add_child(root)
+	Nav.push(root, root.queue_free)
 	return root
+
+
+static func close(root: Control) -> void:
+	Nav.close(root)

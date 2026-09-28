@@ -9,6 +9,7 @@ const ZONE_COLORS := {"up": Color("3ddc97"), "champion": Color("ffc83d"), "down"
 
 var result := {}
 var scouted := false
+var _view := 0   # 画面を切り替えるたびに増やす。試合の演出が古い画面に書き込まないように
 
 
 func _ready() -> void:
@@ -17,6 +18,7 @@ func _ready() -> void:
 
 
 func show_league() -> void:
+	_view += 1
 	UI.clear(self)
 	var L: Dictionary = Game.save.league
 	var body := UI.vbox(10)
@@ -168,7 +170,10 @@ func _kickoff() -> void:
 	var L: Dictionary = Game.save.league
 	result = Game.play_round(Game.save.tactic)
 	scouted = false
+	_view += 1
+	var view := _view
 	UI.clear(self)
+	Nav.push(self, show_league)
 
 	var board := PanelContainer.new()
 	var bsb := UI.sbox(UI.PANEL, 6, Color(UI.CYAN, 0.4), 1, 10)
@@ -201,7 +206,7 @@ func _kickoff() -> void:
 	for e in result.events:
 		if not state.skip:
 			await get_tree().create_timer(wait).timeout
-			if not is_inside_tree():
+			if not is_inside_tree() or view != _view:
 				return
 		var mine: bool = e.team == 0
 		if e.goal:
@@ -219,7 +224,7 @@ func _kickoff() -> void:
 		clock.text = "%d'" % e.min
 	if not state.skip:
 		await get_tree().create_timer(wait).timeout
-		if not is_inside_tree():
+		if not is_inside_tree() or view != _view:
 			return
 	score.text = "%d - %d" % result.goals
 	clock.text = "FULL TIME"
@@ -274,7 +279,7 @@ func _show_result() -> void:
 	p.add_child(rv)
 	add_child(p)
 	var nx := UI.button("順位表へ", "primary", 15, 42)
-	nx.pressed.connect(show_league)
+	nx.pressed.connect(func(): Nav.close(self))
 	add_child(nx)
 
 
@@ -308,7 +313,9 @@ func _season_end() -> void:
 	var table: Array = Game.save.league.table.duplicate(true)
 	var teams: Array = Game.save.league.teams
 	var s := Game.end_season()
+	_view += 1
 	UI.clear(self)
+	Nav.push(self, show_league)
 	var body := UI.vbox(10)
 	var msg: Array = {"up": ["昇格！", UI.LIME, "%d部へ上がります" % s.to],
 		"down": ["降格…", UI.RED, "%d部へ下がります" % s.to],
@@ -332,5 +339,5 @@ func _season_end() -> void:
 	body.add_child(fin)
 	add_child(UI.scroll(body))
 	var nx := UI.button("次のシーズンへ", "primary", 15, 44)
-	nx.pressed.connect(show_league)
+	nx.pressed.connect(func(): Nav.close(self))
 	add_child(nx)

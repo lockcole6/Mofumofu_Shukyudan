@@ -133,13 +133,13 @@ func _picker(cell: int) -> void:
 			if err != "":
 				Game.toast.emit(err)
 				return
-			holder.m.queue_free()
+			UI.close(holder.m)
 			build(), 40)
 		card.size_flags_horizontal = SIZE_EXPAND_FILL
 		card.dim = not here and c.rarity > room
 		g.add_child(card)
 	v.add_child(g)
 	var cl := UI.button("とじる", "ghost", 13, 36)
-	cl.pressed.connect(func(): holder.m.queue_free())
+	cl.pressed.connect(func(): UI.close(holder.m))
 	v.add_child(cl)
 	holder.m = UI.modal(self, v)

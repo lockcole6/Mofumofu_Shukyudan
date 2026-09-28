@@ -15,7 +15,7 @@ static func open(from: Node, id: int, opts := {}) -> void:
 		_build(v, id, opts, func():
 			if opts.has("on_change"):
 				opts.on_change.call()
-			h.refresh.call(), func(): h.m.queue_free())
+			h.refresh.call(), func(): UI.close(h.m))
 	h.refresh.call()
 	h.m = UI.modal(from, v)
 
