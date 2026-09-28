@@ -16,6 +16,20 @@ func _ready() -> void:
 	main.content.get_child(0)._pull(10)
 	await _frames()
 	var ov: Node = _top()
+	# 演出中：出てきたキャラを長押し → 詳細、タップ → 次へ
+	await get_tree().create_timer(1.8).timeout
+	var c0 := Vector2(180, 300)
+	_mouse(c0, true)
+	await get_tree().create_timer(0.6).timeout
+	_mouse(c0, false)
+	await _frames()
+	print("reveal long press -> layers: ", _layers(), " idx=", ov.idx)
+	Nav.back()
+	await _frames()
+	_mouse(c0, true)
+	_mouse(c0, false)
+	await _frames()
+	print("reveal tap -> idx=", ov.idx)
 	ov._show_summary()
 	await _frames()
 	var card: Control = ov.find_children("*", "MarginContainer", true, false)[0]

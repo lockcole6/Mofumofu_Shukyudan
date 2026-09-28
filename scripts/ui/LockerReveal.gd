@@ -105,7 +105,7 @@ func _show_locker() -> void:
 	info.add_child(tags)
 	stage.add_child(info)
 
-	hint = UI.label("TAP", 11, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER, true)
+	hint = UI.label("タップで次へ ／ 長押しで詳細", 10, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER, true)
 	stage.add_child(hint)
 
 
@@ -132,8 +132,28 @@ func _open() -> void:
 	tw.tween_callback(func(): phase = "revealed")
 
 
+var _press_n := 0
+var _long := false
+
+
 func _gui_input(e: InputEvent) -> void:
-	if not (e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT):
+	if not (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if e.pressed:
+		# 出てきたキャラは長押しで詳細
+		_long = false
+		_press_n += 1
+		var my := _press_n
+		if phase == "revealed":
+			get_tree().create_timer(UI.LONG_PRESS).timeout.connect(func():
+				if _press_n == my and phase == "revealed":
+					_long = true
+					CharDetail.open(self, results[idx].id, {"readonly": true}))
+		return
+	# 離したときに進める（長押しで詳細を開いたときは進めない）
+	_press_n += 1
+	if _long:
+		_long = false
 		return
 	match phase:
 		"closed":
