@@ -37,7 +37,6 @@ const TEAM_NAMES := ["はらっぱFC", "ひだまりユナイテッド", "のん
 const SKILL_DESC := {
 	"self_atk": "自分の攻撃力+{v}%",
 	"self_def": "自分の守備力+{v}%",
-	"night": "夜の試合で自分の能力+{v}%",
 	"team_atk": "チームの攻撃力+{v}%",
 	"team_def": "チームの守備力+{v}%",
 	"team_both": "チームの攻撃力と守備力+{v}%",
@@ -234,7 +233,7 @@ func _default_save() -> Dictionary:
 		"pages": {},
 		"record": {"wins": 0, "draws": 0, "losses": 0, "best": 5, "titles": 0},
 		"settings": {"speed": "normal"},
-		"debug": {"rates": [60.0, 30.0, 8.0, 2.0], "pity": 50, "time": "auto"},
+		"debug": {"rates": [60.0, 30.0, 8.0, 2.0], "pity": 50},
 		"league": {},
 	}
 	for st in STARTERS:
@@ -314,35 +313,6 @@ func reset_game() -> void:
 	save.settings = st
 	new_season(5)
 	save_game()
-
-
-# ---------------------------------------------------------------- 時間
-
-func is_night() -> bool:
-	match save.debug.time:
-		"day": return false
-		"night", "summer_night": return true
-	var h: int = Time.get_datetime_dict_from_system().hour
-	return h >= 18 or h < 5
-
-
-func is_summer() -> bool:
-	match save.debug.time:
-		"summer_night": return true
-		"day", "night": return false
-	var m: int = Time.get_datetime_dict_from_system().month
-	return m >= 6 and m <= 8
-
-
-func time_text() -> String:
-	return ("夏の" if is_summer() else "") + ("夜" if is_night() else "昼")
-
-
-func available(id: int) -> bool:
-	match chars[id].limit:
-		"night": return is_night()
-		"summer_night": return is_night() and is_summer()
-	return true
 
 
 # ---------------------------------------------------------------- ガチャ
@@ -551,7 +521,7 @@ func _self_mul(p: Dictionary, kind: String) -> float:
 	var m: float = fit(c.pos, p.row) * float(p.get("boost", 1.0))
 	var s: Dictionary = c.skill
 	var v := skill_value(s.base, int(p.get("slv", 1))) / 100.0
-	if s.type == "self_" + kind or (s.type == "night" and is_night()):
+	if s.type == "self_" + kind:
 		m *= 1.0 + v
 	return m
 
@@ -805,7 +775,7 @@ func _pick_ai_char(pos: String, r: int, used: Dictionary) -> int:
 		var pool := []
 		for id in chars:
 			var c = chars[id]
-			if used.has(id) or c.limit != "" or c.rarity != r or c.rarity == 4:
+			if used.has(id) or c.rarity != r or c.rarity == 4:
 				continue
 			if strict and c.pos != pos:
 				continue
@@ -831,7 +801,7 @@ func opponent_index(round_i: int = -1) -> int:
 	return 1
 
 
-## 出場メンバー。夜などの条件がそろうと相手に限定キャラが混ざる。
+## 出場メンバー
 func lineup(team_i: int) -> Array:
 	var key := "%d_%d_%d" % [save.league.season, save.league.round, team_i]
 	if _lineup_cache.has(key):
@@ -840,13 +810,6 @@ func lineup(team_i: int) -> Array:
 	var out := []
 	for m in team.members:
 		out.append({"id": int(m.id), "row": m.row, "slv": ai_slv(), "boost": DIV_BOOST[division()]})
-	var limited := chars.keys().filter(func(id): return chars[id].limit != "" and available(id))
-	if not limited.is_empty() and randf() < 0.4:
-		var id: int = limited.pick_random()
-		for m in out:
-			if chars[m.id].pos == chars[id].pos:
-				m.id = id
-				break
 	_lineup_cache[key] = out
 	return out
 

@@ -4,7 +4,6 @@ extends RefCounted
 
 const UI = preload("res://scripts/ui/UI.gd")
 const SOURCE_TEXT := {"both": "ガチャ・スカウト", "gacha": "ガチャ限定", "scout": "スカウト限定"}
-const LIMIT_TEXT := {"night": "夜だけ出現", "summer_night": "夏の夜だけ出現"}
 
 
 static func open(from: Node, id: int, opts := {}) -> void:
@@ -41,8 +40,6 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 	tags.add_child(UI.tag(c.habitat, UI.HABITAT_COLORS[c.habitat], 10, false))
 	tags.add_child(UI.tag("得意 " + c.pos, UI.ROW_COLORS[c.pos], 10, false))
 	tags.add_child(UI.tag(SOURCE_TEXT[c.source], UI.SUB, 10, false))
-	if LIMIT_TEXT.has(c.limit):
-		tags.add_child(UI.tag(LIMIT_TEXT[c.limit], UI.PINK, 10, false))
 	hv.add_child(tags)
 	head.add_child(hv)
 	v.add_child(head)

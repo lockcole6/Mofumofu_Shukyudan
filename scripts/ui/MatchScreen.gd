@@ -29,8 +29,6 @@ func show_league() -> void:
 	var head := UI.hbox()
 	var rd := "全日程終了" if Game.season_over() else "第%d節 / 5" % (int(L.round) + 1)
 	head.add_child(UI.title("%d部リーグ" % Game.division(), "SEASON %d ・ %s" % [L.season, rd]))
-	head.add_child(UI.spacer())
-	head.add_child(UI.tag(Game.time_text(), UI.PINK if Game.is_night() else UI.GOLD, 10, false))
 	body.add_child(head)
 
 	# いまの順位（くわしくは順位表のモーダルで）

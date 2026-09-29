@@ -1,9 +1,8 @@
 extends VBoxContainer
-## 設定：試合の表示速度、データ、デバッグ（排出率・ガチャ石・時間帯・ディビジョンなど）
+## 設定：試合の表示速度、データ、デバッグ（排出率・ガチャ石・ディビジョンなど）
 
 const UI = preload("res://scripts/ui/UI.gd")
 const SPEEDS := [["normal", "ふつう"], ["fast", "はやい"], ["instant", "結果だけ"]]
-const TIME_MODES := [["auto", "自動（現実の時間）"], ["day", "昼"], ["night", "夜"], ["summer_night", "夏の夜"]]
 
 var debug_open := false
 
@@ -84,20 +83,6 @@ func _debug() -> Control:
 		Game.save.stones = int(x)
 		Game.save_game()))
 	v.add_child(g)
-
-	v.add_child(UI.label("時間帯（夜・夏限定キャラの確認用）", 11, UI.GOLD, HORIZONTAL_ALIGNMENT_LEFT, true))
-	var ob := OptionButton.new()
-	for i in TIME_MODES.size():
-		ob.add_item(TIME_MODES[i][1], i)
-		if TIME_MODES[i][0] == d.time:
-			ob.select(i)
-	ob.item_selected.connect(func(i):
-		d.time = TIME_MODES[i][0]
-		Game._lineup_cache.clear()
-		Game.save_game()
-		build())
-	v.add_child(ob)
-	v.add_child(UI.label("いまの判定：%s" % Game.time_text(), 11, UI.SUB))
 
 	v.add_child(UI.label("ディビジョン（新しいシーズンを始める）", 11, UI.GOLD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	v.add_child(UI.segmented(["1部", "2部", "3部", "4部", "5部"], "%d部" % Game.division(), func(n):
