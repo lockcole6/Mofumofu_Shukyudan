@@ -114,6 +114,9 @@ func show_league() -> void:
 	np.add_child(nv)
 	body.add_child(np)
 
+	# 編成プリセットの切り替え（試合前に変えられる）
+	body.add_child(UI.preset_bar(show_league))
+
 	# 編成・相手の編成へのリンク
 	var links := UI.hbox(8)
 	var l_team := UI.button("自分の編成を変える", "ghost", 12, 34)
@@ -140,9 +143,12 @@ func show_league() -> void:
 
 
 func _goto_team() -> void:
-	var m := get_tree().current_scene
-	if m and m.has_method("show_screen"):
-		m.show_screen("編成")
+	# 親をたどってメイン画面（タブを切り替えるところ）を探す
+	var m := get_parent()
+	while m and not m.has_method("show_screen"):
+		m = m.get_parent()
+	if m:
+		m.show_screen("編成", true, true)
 
 
 ## 相手の編成を、編成画面と同じピッチで見せる

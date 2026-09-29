@@ -114,9 +114,11 @@ func _refresh_top() -> void:
 
 
 ## record=true のときは「戻る」で前のタブに戻れるようにする
-func show_screen(tab: String, record := true) -> void:
+## with_back=true なら、開いた画面に「前のタブに戻る」ボタンを出してもらう（back_to を渡す）
+func show_screen(tab: String, record := true, with_back := false) -> void:
 	if tab == current:
 		return
+	var from := current
 	if record and current != "":
 		var prev := current
 		Nav.push(self, func(): show_screen(prev, false))
@@ -126,6 +128,8 @@ func show_screen(tab: String, record := true) -> void:
 		if t[0] == tab:
 			var s: Control = t[1].new()
 			s.size_flags_vertical = SIZE_EXPAND_FILL
+			if with_back and "back_to" in s:
+				s.back_to = from
 			content.add_child(s)
 	for k in tab_buttons:
 		var on: bool = k == tab

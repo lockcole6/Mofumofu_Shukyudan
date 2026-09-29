@@ -20,7 +20,7 @@ var _crowd := []
 
 
 func _ready() -> void:
-	custom_minimum_size.y = 272
+	custom_minimum_size.y = 250
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var r := RandomNumberGenerator.new()
 	r.seed = 5

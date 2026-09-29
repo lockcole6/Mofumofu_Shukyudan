@@ -13,6 +13,9 @@ const PitchPlayer = preload("res://scripts/ui/PitchPlayer.gd")
 const LIFT_TIME := 0.25   # この時間押し続けるとカードが持ち上がる（詳細は「詳細」ボタンから）
 
 var sel := 0            # 選んでいる選手
+var back_to := ""       # 別のタブから来たとき、そのタブ名（見出しに戻るボタンを出す）
+var _bench_x := 0       # 控えの横スクロール位置（作り直しても戻らないように）
+var _bench_sc: ScrollContainer
 var _pitch: Control
 var _bench: Control
 var _drag := {}         # 持ち上げ中 {id, src, preview}
@@ -25,6 +28,8 @@ func _ready() -> void:
 
 func build() -> void:
 	_end_drag()
+	if is_instance_valid(_bench_sc):
+		_bench_x = _bench_sc.scroll_horizontal
 	UI.clear(self)
 	var entries := Game.formation_entries()
 	var pw := Game.team_power(entries)
@@ -35,6 +40,10 @@ func build() -> void:
 
 	# 見出し
 	var head := UI.hbox(6)
+	if back_to != "":
+		var bk := UI.button("‹ %s" % back_to, "ghost", 12, 30)
+		bk.pressed.connect(Nav.back)
+		head.add_child(bk)
 	head.add_child(UI.title("チーム編成"))
 	head.add_child(UI.spacer())
 	var n_combo: int = pw.mods.combos.size()
@@ -45,6 +54,9 @@ func build() -> void:
 	auto.pressed.connect(_auto_menu)
 	head.add_child(auto)
 	add_child(head)
+	add_child(UI.preset_bar(func():
+		sel = 0
+		build()))
 
 	# フォーメーション・コスト・攻撃・守備
 	var sp := UI.panel(UI.PANEL, 4)
@@ -181,6 +193,12 @@ func _bench_panel() -> Control:
 	h.add_child(sc)
 	p.add_child(h)
 	_bench = p
+	_bench_sc = sc
+	# 選んだあとに作り直しても、スクロール位置はそのまま
+	var x := _bench_x
+	get_tree().process_frame.connect(func():
+		if is_instance_valid(sc):
+			sc.scroll_horizontal = x, CONNECT_ONE_SHOT)
 	return p
 
 

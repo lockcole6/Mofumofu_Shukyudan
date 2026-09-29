@@ -152,6 +152,28 @@ static func icon_button(text: String, icon_kind: String, kind := "primary", size
 	return b
 
 
+## 編成プリセット（1〜5）の切り替えバー。切り替えたら on_change を呼ぶ
+static func preset_bar(on_change: Callable) -> HBoxContainer:
+	var h := hbox(4)
+	var l := label("編成", 11, SUB, HORIZONTAL_ALIGNMENT_LEFT, true)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(l)
+	for i in Game.PRESET_COUNT:
+		var on := i == int(Game.save.preset)
+		var b := button("%d  %s" % [i + 1, Game.preset_name(i)], "active" if on else "ghost", 10, 30)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		for st in ["normal", "hover", "pressed", "disabled"]:
+			var sb: StyleBoxFlat = b.get_theme_stylebox(st).duplicate()
+			sb.content_margin_left = 3
+			sb.content_margin_right = 3
+			b.add_theme_stylebox_override(st, sb)
+		b.pressed.connect(func():
+			Game.select_preset(i)
+			on_change.call())
+		h.add_child(b)
+	return h
+
+
 static func icon(c: Dictionary, silhouette := false, size := 48) -> TextureRect:
 	var t := TextureRect.new()
 	t.texture = Sprites.get_tex(c, silhouette)

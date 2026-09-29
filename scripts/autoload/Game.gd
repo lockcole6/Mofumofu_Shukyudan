@@ -12,6 +12,13 @@ const GRID_ROWS := ["攻", "中", "守", "GK"]
 const ROW_MAX := {"攻": 3, "中": 3, "守": 3, "GK": 1}
 const POS_LABEL := {"攻": "FW", "中": "MF", "守": "DF", "GK": "GK"}
 ## おまかせ編成の型（GK・DF・MF・FW の人数）
+const PRESET_COUNT := 5
+## おまかせで枠を埋める順番（先に埋める列ほど、コストの高い強い選手が入りやすい）
+const AUTO_ORDER := {
+	"攻撃型": ["攻", "攻", "中", "攻", "中", "GK", "守"],
+	"バランス": ["GK", "中", "攻", "守", "中", "攻", "守"],
+	"守備型": ["守", "GK", "守", "中", "守", "中", "攻"],
+}
 const AUTO_STYLES := {
 	"攻撃型": {"GK": 1, "守": 1, "中": 2, "攻": 3},
 	"バランス": {"GK": 1, "守": 2, "中": 2, "攻": 2},
@@ -237,7 +244,8 @@ func _default_save() -> Dictionary:
 		"pulls": 0,
 		"roster": {},
 		"formation": [],
-		"tactic": "バランス",
+		"presets": [],     # 編成プリセット（5つ）。いま使っている番号は preset
+		"preset": 0,
 		"pages": {},
 		"record": {"wins": 0, "draws": 0, "losses": 0, "best": 5, "titles": 0},
 		"settings": {"speed": "normal", "bgm": 0.7, "sfx": 0.8},
@@ -247,6 +255,9 @@ func _default_save() -> Dictionary:
 	for st in STARTERS:
 		s.roster[str(st[0])] = {"slv": 1, "copies": 0}
 		s.formation.append({"id": st[0], "row": st[1]})
+	s.presets = [s.formation.duplicate(true)]
+	for i in PRESET_COUNT - 1:
+		s.presets.append([])
 	return s
 
 
@@ -265,6 +276,10 @@ func load_game() -> void:
 		for f in save.formation:
 			f.id = int(f.id)
 		_fit_row_max()
+	if save.presets.size() != PRESET_COUNT:
+		save.presets = [save.formation.duplicate(true)]
+		for i in PRESET_COUNT - 1:
+			save.presets.append([])
 	if save.league.is_empty():
 		new_season(5)
 	_lineup_cache.clear()
@@ -327,6 +342,9 @@ func _migrate_v2(data: Dictionary) -> void:
 
 
 func save_game() -> void:
+	# いまの編成は、使っているプリセットにそのまま保存する
+	if save.presets.size() == PRESET_COUNT:
+		save.presets[int(save.preset)] = save.formation.duplicate(true)
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify(save))
 	changed.emit()
@@ -502,11 +520,9 @@ func swap(a: int, b: int) -> void:
 
 ## コスト上限の中で強そうな7体を、型（攻撃型・バランス・守備型）どおりに自動で並べる
 func auto_formation(style := "バランス") -> void:
-	var st: Dictionary = AUTO_STYLES[style]
-	var slots := [["GK"]]
-	for row in ["攻", "中", "守"]:
-		for n in st[row]:
-			slots.append([row])
+	var slots := []
+	for row in AUTO_ORDER[style]:
+		slots.append([row])
 	var budget := cost_cap()
 	var used := {}
 	var out := []
@@ -530,6 +546,37 @@ func auto_formation(style := "バランス") -> void:
 			out.append({"id": best, "row": row})
 	save.formation = out
 	save_game()
+
+
+## プリセットを切り替える。空のプリセットは、いまの編成をコピーして始める
+func select_preset(i: int) -> void:
+	if i == int(save.preset):
+		return
+	save.presets[int(save.preset)] = save.formation.duplicate(true)
+	save.preset = i
+	var p: Array = save.presets[i]
+	if p.is_empty():
+		save.presets[i] = save.formation.duplicate(true)
+	else:
+		var out := []
+		for f in p:
+			if owned(int(f.id)) and not out.any(func(o): return o.id == int(f.id)):
+				out.append({"id": int(f.id), "row": f.row})
+		save.formation = out
+		_fit_row_max()
+	_lineup_cache.clear()
+	save_game()
+
+
+func preset_name(i: int) -> String:
+	var p: Array = save.presets[i]
+	if p.is_empty():
+		return "－"
+	var n := {"守": 0, "中": 0, "攻": 0}
+	for f in p:
+		if n.has(f.row):
+			n[f.row] += 1
+	return "%d-%d-%d" % [n["守"], n["中"], n["攻"]]
 
 
 func active_combos(entries: Array) -> Array:
