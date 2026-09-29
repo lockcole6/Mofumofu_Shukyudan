@@ -25,6 +25,8 @@ const RARITY_COLORS := {1: STAR, 2: STAR, 3: STAR, 4: STAR}
 ## ガチャの扉と排出率だけはレア度ごとの色
 const DOOR_COLORS := {1: Color("8aa0c8"), 2: Color("3ddc97"), 3: Color("ffc83d"), 4: Color("ff4fd8")}
 const GOLD_FRAME := Color("ffd24a")
+## 画面に出すポジション名（中のデータは 攻・中・守・GK）
+const POS_LABEL := {"攻": "FW", "中": "MF", "守": "DF", "GK": "GK"}
 const ROW_COLORS := {"攻": Color("ff4d6d"), "中": Color("3ddc97"), "守": Color("3d8bff"), "GK": Color("ffb020")}
 const HABITAT_COLORS := {"草原": Color("8ee05a"), "森": Color("3ddc97"), "海": Color("3d8bff"),
 	"雪山": Color("9fd8ff"), "空": Color("22d3ff"), "伝説": Color("ffc83d"), "蹴球": Color("ff4fd8")}
@@ -136,6 +138,20 @@ static func style_button(b: Button, kind: String) -> void:
 	b.add_theme_color_override("font_disabled_color", DIM)
 
 
+## アイコンつきのボタン（icon_kind は Icon.gd の種類）
+static func icon_button(text: String, icon_kind: String, kind := "primary", size := 14, min_h := 40) -> Button:
+	var b := button("", kind, size, min_h)
+	var h := hbox(8)
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	h.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var fg: Color = b.get_theme_color("font_color")
+	h.add_child(load("res://scripts/ui/Icon.gd").make(icon_kind, fg, size + 4))
+	h.add_child(label(text, size, fg, HORIZONTAL_ALIGNMENT_CENTER, true))
+	ignore_mouse(h)
+	b.add_child(h)
+	return b
+
+
 static func icon(c: Dictionary, silhouette := false, size := 48) -> TextureRect:
 	var t := TextureRect.new()
 	t.texture = Sprites.get_tex(c, silhouette)
@@ -167,7 +183,8 @@ static func tag(text: String, color: Color, size := 10, filled := true) -> Panel
 ## タップできる領域。スクロール中のドラッグはタップ扱いしない。
 ## on_long を渡すと、長押し（long_time 秒）でそちらを呼ぶ。長押ししたときはタップ扱いにしない。
 ## lift_on_move=true なら、押したまま動かし始めた時点でも on_long を呼ぶ（カードを運ぶ操作用）。
-static func on_tap(c: Control, cb: Callable, on_long := Callable(), long_time := LONG_PRESS, lift_on_move := false) -> void:
+## on_move を渡すと、押したまま動かし始めたときはそちらを呼ぶ（長押しは on_long のまま）。
+static func on_tap(c: Control, cb: Callable, on_long := Callable(), long_time := LONG_PRESS, lift_on_move := false, on_move := Callable()) -> void:
 	c.mouse_filter = Control.MOUSE_FILTER_PASS
 	var st := {"down": false, "pos": Vector2.ZERO, "moved": false, "long": false, "n": 0}
 	c.gui_input.connect(func(e: InputEvent):
@@ -180,8 +197,10 @@ static func on_tap(c: Control, cb: Callable, on_long := Callable(), long_time :=
 				st.n += 1
 				if on_long.is_valid():
 					var my: int = st.n
+					# タップで画面が作り直されてカードが消えても大丈夫なよう、弱い参照で持つ
+					var wr: WeakRef = weakref(c)
 					c.get_tree().create_timer(long_time).timeout.connect(func():
-						if is_instance_valid(c) and st.down and not st.moved and st.n == my:
+						if wr.get_ref() and st.down and not st.moved and st.n == my:
 							st.long = true
 							on_long.call())
 			elif st.down:
@@ -189,6 +208,9 @@ static func on_tap(c: Control, cb: Callable, on_long := Callable(), long_time :=
 				if not st.long and e.global_position.distance_to(st.pos) < 12.0 and cb.is_valid():
 					Sound.play("tap")
 					cb.call()
+		elif e is InputEventMouseMotion and st.down and not st.long and on_move.is_valid() 				and e.global_position.distance_to(st.pos) >= 8.0:
+			st.long = true
+			on_move.call()
 		elif e is InputEventMouseMotion and st.down and not st.long and lift_on_move and on_long.is_valid() 				and e.global_position.distance_to(st.pos) >= 8.0:
 			st.long = true
 			on_long.call()

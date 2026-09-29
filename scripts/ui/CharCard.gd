@@ -69,9 +69,9 @@ func _draw() -> void:
 			PackedColorArray([a, a, b, b]))
 		if pos != "":
 			var f: Font = UI.heavy_font if UI.heavy_font else get_theme_default_font()
-			var w := 18.0 if pos == "GK" else 13.0
+			var w := 18.0
 			draw_colored_polygon(PackedVector2Array([Vector2(1, 1), Vector2(w + 5, 1), Vector2(w, 13), Vector2(1, 13)]), rcol)
-			draw_string(f, Vector2(3, 11), pos, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UI.BG)
+			draw_string(f, Vector2(3, 11), UI.POS_LABEL[pos], HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UI.BG)
 	# ★3は金の枠、★4は虹色の枠。どちらもときどき光が走る
 	if rarity >= 3:
 		var fc := UI.GOLD_FRAME if rarity == 3 else Color.from_hsv(fposmod(_t * 0.25, 1.0), 0.55, 1.0)

@@ -1,6 +1,8 @@
 extends Control
 
 const UI = preload("res://scripts/ui/UI.gd")
+const Icon = preload("res://scripts/ui/Icon.gd")
+const TAB_ICONS := {"試合": "ball", "編成": "team", "図鑑": "book", "ガチャ": "gacha", "設定": "gear"}
 const TABS := [
 	["試合", preload("res://scripts/ui/MatchScreen.gd")],
 	["編成", preload("res://scripts/ui/TeamScreen.gd")],
@@ -13,6 +15,7 @@ var content: MarginContainer
 var stones_label: Label
 var div_label: Label
 var tab_buttons := {}
+var tab_parts := {}      # タブ -> [アイコン, ラベル]
 var toast_box: VBoxContainer
 var current := ""
 
@@ -69,13 +72,21 @@ func _ready() -> void:
 	var tabs := UI.hbox(0)
 	for t in TABS:
 		var b := Button.new()
-		b.text = t[0]
-		b.custom_minimum_size.y = 50
+		b.custom_minimum_size.y = 58
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 13)
-		if UI.heavy_font:
-			b.add_theme_font_override("font", UI.heavy_font)
 		b.pressed.connect(show_screen.bind(t[0]))
+		# アイコンと名前を縦に並べる
+		var v := UI.vbox(2)
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+		var ic := Icon.make(TAB_ICONS[t[0]], UI.SUB, 24)
+		ic.size_flags_horizontal = SIZE_SHRINK_CENTER
+		v.add_child(ic)
+		var lb := UI.label(t[0], 11, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER, true)
+		v.add_child(lb)
+		UI.ignore_mouse(v)
+		b.add_child(v)
+		tab_parts[t[0]] = [ic, lb]
 		tabs.add_child(b)
 		tab_buttons[t[0]] = b
 	bottom.add_child(tabs)
@@ -124,8 +135,10 @@ func show_screen(tab: String, record := true) -> void:
 			sb.border_width_top = 3 if on else 0
 			b.add_theme_stylebox_override(stn, sb)
 		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-		for fc in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-			b.add_theme_color_override(fc, UI.CYAN if on else UI.SUB)
+		var col: Color = UI.CYAN if on else UI.SUB
+		tab_parts[k][0].color = col
+		tab_parts[k][0].queue_redraw()
+		tab_parts[k][1].add_theme_color_override("font_color", col)
 
 
 

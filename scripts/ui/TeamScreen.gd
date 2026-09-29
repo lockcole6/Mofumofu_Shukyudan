@@ -1,20 +1,19 @@
 extends VBoxContainer
-## 編成：列（攻・中・守・GK）ごとに選手を並べる。人数に合わせて自動で中央にそろう。
-## GKは1人、ほかの列は最大4人、合計7人。
-## 操作：タップで詳細、＋で追加、
-##       少し長押し（または押したまま動かす）でカードを持ち上げて運ぶ（別の列へ移動・選手の上で入れ替え・右端の「外す」で編成から外す）。
+## チーム編成：芝のピッチに7体を並べる（上から FW・MF・DF・GK、人数に合わせて左右対称）。
+## 下に選んだ選手のスキルと操作ボタン、その下に控え。
+## 操作：タップで選択（スキルを確認）、長押しで詳細、押したまま動かすと持ち上げて運べる
+##       （選手の上で入れ替え・別の列へ移動・控えに落とすと外れる）。
 
 const UI = preload("res://scripts/ui/UI.gd")
 const CharDetail = preload("res://scripts/ui/CharDetail.gd")
-const CARD_W := 64
-const REMOVE_W := 40
-const LIFT_TIME := 0.25
+const Icon = preload("res://scripts/ui/Icon.gd")
+const Pitch = preload("res://scripts/ui/Pitch.gd")
+const PitchPlayer = preload("res://scripts/ui/PitchPlayer.gd")
 
-var view := "ピッチ"   # ピッチ / スキル
-var _cards := {}       # 選手id -> ピッチ上のカード
-var _rows := {}        # 列 -> 列のパネル
+var sel := 0            # 選んでいる選手
 var _pitch: Control
-var _drag := {}        # 持ち上げ中 {id, card, preview, zone}
+var _bench: Control
+var _drag := {}         # 持ち上げ中 {id, src, preview}
 
 
 func _ready() -> void:
@@ -25,66 +24,172 @@ func _ready() -> void:
 func build() -> void:
 	_end_drag()
 	UI.clear(self)
-	_cards.clear()
-	_rows.clear()
 	var entries := Game.formation_entries()
 	var pw := Game.team_power(entries)
 	var cost := Game.formation_cost()
 	var cap := Game.cost_cap()
-	var full := entries.size() >= Game.TEAM_SIZE
+	if sel == 0 or not Game.owned(sel):
+		sel = entries[0].id if not entries.is_empty() else 0
 
-	# 見出し：フォーメーション・コスト・戦力
-	var head := UI.panel(UI.PANEL, 8)
-	var hh := UI.hbox(14)
-	for s in [["FORMATION", Game.formation_name(entries), UI.INK], ["COST", "%d/%d" % [cost, cap], UI.RED if cost > cap else UI.LIME],
-			["攻撃", str(int(pw.atk)), UI.ROW_COLORS["攻"]], ["守備", str(int(pw.def)), UI.ROW_COLORS["守"]]]:
-		var sv := UI.vbox(0)
-		sv.add_child(UI.label(s[0], 9, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
-		sv.add_child(UI.label(s[1], 17, s[2], HORIZONTAL_ALIGNMENT_LEFT, true))
-		hh.add_child(sv)
-	head.add_child(hh)
+	# 見出し
+	var head := UI.hbox(6)
+	head.add_child(UI.title("チーム編成"))
+	head.add_child(UI.spacer())
+	var n_combo: int = pw.mods.combos.size()
+	var cb := UI.button("連携 %d" % n_combo, "pink" if n_combo > 0 else "ghost", 11, 30)
+	cb.pressed.connect(_show_combos)
+	head.add_child(cb)
+	var auto := UI.button("おまかせ", "ghost", 12, 30)
+	auto.set_meta("sfx", "skill")
+	auto.pressed.connect(_auto)
+	head.add_child(auto)
 	add_child(head)
 
-	# ピッチ／スキルの切り替え
-	add_child(UI.segmented(["ピッチ", "スキル"], view, func(v):
-		view = v
-		build(), 12))
-	if view == "スキル":
-		add_child(UI.scroll(_skill_list(entries)))
-		return
-
-	# 1行の案内（いま何ができるか）と、おまかせ
-	var ih := UI.hbox(6)
-	var info := UI.flow(4)
-	info.size_flags_horizontal = SIZE_EXPAND_FILL
-	if cost > cap:
-		info.add_child(UI.label("コスト上限をこえています。長押しで右へ運ぶと外せます", 10, UI.RED))
-	elif not full:
-		info.add_child(UI.label("あと%d人置けます（＋をタップ）" % (Game.TEAM_SIZE - entries.size()), 10, UI.CYAN))
-	elif not pw.mods.combos.is_empty():
-		info.add_child(UI.label("連携", 10, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true))
-		for n in pw.mods.combos:
-			info.add_child(UI.tag(n, UI.PINK, 9, false))
-	else:
-		info.add_child(UI.label("タップで詳細 ／ 押したまま動かして移動", 10, UI.DIM))
-	ih.add_child(info)
-	var auto := UI.button("おまかせ編成", "ghost", 11, 28)
-	auto.set_meta("sfx", "skill")
-	auto.size_flags_vertical = SIZE_SHRINK_CENTER
-	auto.pressed.connect(_auto)
-	ih.add_child(auto)
-	add_child(ih)
+	# フォーメーション・コスト・攻撃・守備
+	var sp := UI.panel(UI.PANEL, 4)
+	var sh := UI.hbox(0)
+	var stats := [["FORMATION", Game.formation_name(entries), UI.INK], ["コスト", "%d/%d" % [cost, cap], UI.RED if cost > cap else UI.LIME],
+		["攻撃", str(int(pw.atk)), UI.ROW_COLORS["攻"]], ["守備", str(int(pw.def)), UI.ROW_COLORS["守"]]]
+	for i in stats.size():
+		if i > 0:
+			var d := ColorRect.new()
+			d.color = UI.LINE
+			d.custom_minimum_size = Vector2(1, 30)
+			d.size_flags_vertical = SIZE_SHRINK_CENTER
+			sh.add_child(d)
+		var v := UI.vbox(0)
+		v.size_flags_horizontal = SIZE_EXPAND_FILL
+		v.add_child(UI.label(stats[i][0], 9, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER, true))
+		v.add_child(UI.label(stats[i][1], 17, stats[i][2], HORIZONTAL_ALIGNMENT_CENTER, true))
+		sh.add_child(v)
+	sp.add_child(sh)
+	add_child(sp)
 
 	# ピッチ
-	var pitch := PanelContainer.new()
-	pitch.add_theme_stylebox_override("panel", UI.sbox(Color("101a24"), 6, Color("1f3a3a"), 1, 4))
+	var pitch = Pitch.new()
 	pitch.size_flags_vertical = SIZE_EXPAND_FILL
-	var rows := UI.vbox(5)
-	for row in Game.GRID_ROWS:
-		rows.add_child(_row(row, full))
-	pitch.add_child(rows)
+	pitch.custom_minimum_size.y = 190
+	for p in entries:
+		var pp = PitchPlayer.new()
+		pp.setup(p.id, p.row)
+		pp.selected = p.id == sel
+		UI.on_tap(pp, _select.bind(p.id), _detail.bind(p.id), UI.LONG_PRESS, false, _start_drag.bind(p.id))
+		pitch.add_child(pp)
+		pitch.players[p.id] = pp
 	add_child(pitch)
 	_pitch = pitch
+
+	# 選んだ選手
+	if sel != 0:
+		add_child(_selected_panel(sel))
+
+	# 案内
+	var hint := "タップでスキル確認・長押しで詳細・ドラッグで移動"
+	var hc := UI.DIM
+	if cost > cap:
+		hint = "コスト上限をこえています。控えへドラッグで外せます"
+		hc = UI.RED
+	elif entries.size() < Game.TEAM_SIZE:
+		hint = "あと%d人出場できます。控えからピッチへドラッグ" % (Game.TEAM_SIZE - entries.size())
+		hc = UI.CYAN
+	add_child(UI.label(hint, 10, hc, HORIZONTAL_ALIGNMENT_CENTER, true))
+
+	# 控え
+	add_child(_bench_panel())
+
+
+func _selected_panel(id: int) -> Control:
+	var c: Dictionary = Game.chars[id]
+	var here := Game.in_team(id)
+	var p := UI.panel(UI.PANEL, 6, UI.ROW_COLORS[c.pos])
+	var v := UI.vbox(6)
+	var top := UI.hbox(10)
+	var card = UI.card(id, false, [UI.label(UI.stars(c.rarity), 10, UI.GOLD, HORIZONTAL_ALIGNMENT_CENTER)], Callable(), 36)
+	card.custom_minimum_size = Vector2(60, 58)
+	top.add_child(card)
+	var iv := UI.vbox(2)
+	iv.size_flags_horizontal = SIZE_EXPAND_FILL
+	var nh := UI.hbox(6)
+	nh.add_child(UI.label(c.name, 15, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	if not here:
+		nh.add_child(UI.tag("控え", UI.SUB, 9, false))
+	iv.add_child(nh)
+	var line := ColorRect.new()
+	line.color = UI.LINE
+	line.custom_minimum_size.y = 1
+	iv.add_child(line)
+	var sk := UI.hbox(6)
+	var ib := PanelContainer.new()
+	ib.add_theme_stylebox_override("panel", UI.sbox(Color(UI.CYAN, 0.12), 4, Color(UI.CYAN, 0.6), 1, 3))
+	ib.add_child(Icon.make("flag", UI.CYAN, 16))
+	sk.add_child(ib)
+	sk.add_child(UI.label(c.skill.name, 14, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	sk.add_child(UI.tag("Lv%d" % Game.slv(id), UI.CYAN, 10, false))
+	iv.add_child(sk)
+	iv.add_child(UI.wrap_label(Game.skill_text(id, Game.slv(id)), 11, UI.CYAN))
+	top.add_child(iv)
+	v.add_child(top)
+	var bh := UI.hbox(8)
+	var info := UI.icon_button("詳細", "info", "ghost", 13, 32)
+	info.size_flags_horizontal = SIZE_EXPAND_FILL
+	info.pressed.connect(_detail.bind(id))
+	bh.add_child(info)
+	var main_btn: Button
+	if here:
+		main_btn = UI.icon_button("入れ替え", "swap", "primary", 13, 32)
+		main_btn.pressed.connect(_picker.bind(Game.row_of_id(id), id))
+	else:
+		main_btn = UI.icon_button("出場させる", "swap", "primary", 13, 32)
+		main_btn.set_meta("sfx", "")
+		main_btn.pressed.connect(func():
+			var err := Game.place(id, c.pos)
+			if err != "":
+				Game.error_toast.emit(err)
+				return
+			Sound.play("drop")
+			build())
+	main_btn.size_flags_horizontal = SIZE_EXPAND_FILL
+	bh.add_child(main_btn)
+	v.add_child(bh)
+	p.add_child(v)
+	return p
+
+
+func _bench_panel() -> Control:
+	var p := UI.panel(UI.PANEL, 4)
+	var h := UI.hbox(8)
+	var lab := UI.label("控え", 13, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER, true)
+	lab.custom_minimum_size.x = 36
+	h.add_child(lab)
+	var ids: Array = Game.save.roster.keys().map(func(k): return int(k)).filter(func(id): return not Game.in_team(id))
+	ids.sort_custom(func(a, b): return [Game.chars[a].rarity, -a] > [Game.chars[b].rarity, -b])
+	var sc = UI.DragScroll.new()
+	sc.horizontal = true
+	sc.size_flags_horizontal = SIZE_EXPAND_FILL
+	sc.custom_minimum_size.y = 50
+	var row := UI.hbox(6)
+	for id in ids:
+		var card = UI.card(id, false, [UI.label(UI.stars(Game.chars[id].rarity), 9, UI.GOLD, HORIZONTAL_ALIGNMENT_CENTER)], Callable(), 32)
+		card.custom_minimum_size = Vector2(52, 50)
+		card.selected = id == sel
+		UI.on_tap(card, _select.bind(id), _detail.bind(id), UI.LONG_PRESS, false, _start_drag.bind(id))
+		row.add_child(card)
+	if ids.is_empty():
+		row.add_child(UI.label("全員出場中", 11, UI.DIM))
+	sc.add_child(row)
+	h.add_child(sc)
+	p.add_child(h)
+	_bench = p
+	return p
+
+
+func _select(id: int) -> void:
+	sel = id
+	build()
+
+
+func _detail(id: int) -> void:
+	CharDetail.open(self, id, {"team": true, "on_change": build, "on_swap": _picker.bind(Game.row_of_id(id), id)})
 
 
 func _auto() -> void:
@@ -94,104 +199,38 @@ func _auto() -> void:
 	build()
 	Game.toast.emit("おまかせで並べました（%s ・ コスト%d/%d）" % [Game.formation_name(), Game.formation_cost(), Game.cost_cap()]
 		if before != after else "いまの編成がおまかせと同じです")
-	# 並べ直したカードを一瞬光らせる
-	for id in _cards:
-		var c: Control = _cards[id]
+	for id in _pitch.players:
+		var c: Control = _pitch.players[id]
 		c.modulate = Color(1.6, 1.6, 1.6)
 		c.create_tween().tween_property(c, "modulate", Color.WHITE, 0.5)
 
 
-func _row(row: String, full: bool) -> Control:
-	var ids := Game.row_ids(row)
-	var col: Color = UI.ROW_COLORS[row]
-	var zone := PanelContainer.new()
-	zone.add_theme_stylebox_override("panel", UI.sbox(Color(col, 0.05), 4, Color(col, 0.18), 1, 3))
-	zone.size_flags_vertical = SIZE_EXPAND_FILL
-	_rows[row] = zone
-	var h := UI.hbox(4)
-	var lab := UI.label(row, 11, col, HORIZONTAL_ALIGNMENT_CENTER, true)
-	lab.custom_minimum_size.x = 26
-	lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lab.size_flags_vertical = SIZE_FILL
-	h.add_child(lab)
-
-	# 真ん中：人数に合わせて中央寄せ
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = SIZE_EXPAND_FILL
-	center.mouse_filter = MOUSE_FILTER_PASS
-	var cards := UI.hbox(5)
-	cards.mouse_filter = MOUSE_FILTER_PASS
-	for id in ids:
-		var c: Dictionary = Game.chars[id]
-		var st := UI.label(UI.stars(c.rarity), 9, UI.STAR, HORIZONTAL_ALIGNMENT_CENTER)
-		if c.pos != row:
-			st.text += " 得意:" + c.pos
-			st.add_theme_color_override("font_color", UI.RED)
-		var card = UI.card(id, false, [c.name, st], Callable(), 32)
-		# タップで詳細、少し長押し（または押したまま動かす）で持ち上げる
-		UI.on_tap(card, _detail.bind(id), _start_drag.bind(id), LIFT_TIME, true)
-		card.custom_minimum_size = Vector2(CARD_W, 66)
-		_cards[id] = card
-		cards.add_child(card)
-	var can_add: bool = ids.size() < Game.ROW_MAX[row] and (not full or row == "GK")
-	if ids.is_empty():
-		var empty = UI.card(0, false, [UI.label("追加", 9, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER)], _picker.bind(row), 32)
-		empty.custom_minimum_size = Vector2(CARD_W, 66)
-		empty.dim = not can_add
-		cards.add_child(empty)
-	center.add_child(cards)
-	h.add_child(center)
-
-	# 右端：追加ボタン（左のラベルと同じ幅にして中央をずらさない）
-	var right := CenterContainer.new()
-	right.custom_minimum_size.x = 26
-	if can_add and not ids.is_empty():
-		var plus := UI.button("+", "ghost", 14, 30)
-		plus.custom_minimum_size.x = 26
-		for stn in ["normal", "hover", "pressed"]:
-			var sb: StyleBoxFlat = plus.get_theme_stylebox(stn).duplicate()
-			sb.content_margin_left = 2
-			sb.content_margin_right = 2
-			plus.add_theme_stylebox_override(stn, sb)
-		plus.pressed.connect(_picker.bind(row))
-		right.add_child(plus)
-	h.add_child(right)
-	zone.add_child(h)
-	return zone
-
-
-# ---------------------------------------------------------------- 長押しで持ち上げて運ぶ
+# ---------------------------------------------------------------- 持ち上げて運ぶ
 
 func _start_drag(id: int) -> void:
-	if not _drag.is_empty() or not _cards.has(id):
+	if not _drag.is_empty():
 		return
-	var src: Control = _cards[id]
-	src.modulate.a = 0.25
+	var src: Control = _pitch.players.get(id)
+	if src == null:
+		for c in _bench.find_children("*", "MarginContainer", true, false):
+			if "cid" in c and c.cid == id:
+				src = c
+	if src == null:
+		return
+	if src is PitchPlayer:
+		src.lifted = true
+		src.queue_redraw()
+	else:
+		src.modulate.a = 0.3
 	Sound.play("lift")
-	# 指についてくるカード
-	var c: Dictionary = Game.chars[id]
-	var preview = UI.card(id, false, [c.name], Callable(), 36)
-	preview.top_level = true
-	preview.size = Vector2(CARD_W + 6, 70)
-	preview.z_index = 10
-	UI.ignore_mouse(preview)
-	preview.mouse_filter = MOUSE_FILTER_IGNORE
-	add_child(preview)
-	preview.global_position = src.get_global_rect().get_center() - preview.size / 2
-	# 右端の「外す」
-	var zone := PanelContainer.new()
-	zone.top_level = true
-	zone.z_index = 9
-	zone.mouse_filter = MOUSE_FILTER_IGNORE
-	zone.add_theme_stylebox_override("panel", UI.sbox(Color(UI.RED, 0.18), 4, Color(UI.RED, 0.6), 1, 2))
-	var zl := UI.label("外\nす\n→", 12, UI.RED, HORIZONTAL_ALIGNMENT_CENTER, true)
-	zl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	zone.add_child(zl)
-	add_child(zone)
-	var pr := _pitch.get_global_rect()
-	zone.global_position = Vector2(pr.end.x - REMOVE_W, pr.position.y)
-	zone.size = Vector2(REMOVE_W, pr.size.y)
-	_drag = {"id": id, "card": src, "preview": preview, "zone": zone}
+	var pv = PitchPlayer.new()
+	pv.setup(id, "")
+	pv.top_level = true
+	pv.z_index = 20
+	pv.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(pv)
+	pv.global_position = src.get_global_rect().get_center() - pv.size / 2
+	_drag = {"id": id, "src": src, "preview": pv}
 
 
 func _input(e: InputEvent) -> void:
@@ -199,9 +238,7 @@ func _input(e: InputEvent) -> void:
 		return
 	if e is InputEventMouseMotion:
 		var pv: Control = _drag.preview
-		pv.global_position = e.position - pv.size / 2
-		var over: bool = _drag.zone.get_global_rect().has_point(e.position)
-		_drag.zone.get_theme_stylebox("panel").bg_color = Color(UI.RED, 0.45 if over else 0.18)
+		pv.global_position = e.position - pv.size * Vector2(0.5, 0.45)
 		get_viewport().set_input_as_handled()
 	elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and not e.pressed:
 		_drop(e.position)
@@ -209,93 +246,76 @@ func _input(e: InputEvent) -> void:
 
 func _drop(at: Vector2) -> void:
 	var id: int = _drag.id
-	var removed: bool = _drag.zone.get_global_rect().has_point(at)
 	_end_drag()
-	if removed:
-		Game.remove_from_team(id)
-		Sound.play("remove")
-		Game.toast.emit("%s を編成から外しました" % Game.chars[id].name)
+	var in_team := Game.in_team(id)
+	if _bench.get_global_rect().has_point(at):
+		if in_team:
+			Game.remove_from_team(id)
+			Sound.play("remove")
+			Game.toast.emit("%s を控えに下げました" % Game.chars[id].name)
 	else:
-		var done := false
-		for other in _cards:
-			if other != id and _cards[other].get_global_rect().has_point(at):
-				Game.swap(id, other)
-				Sound.play("drop")
-				done = true
-				break
-		if not done:
-			for row in _rows:
-				if _rows[row].get_global_rect().has_point(at) and row != Game.row_of_id(id):
-					var err := Game.place(id, row)
-					_toast(err)
-					if err == "":
-						Sound.play("drop")
-					break
+		var other := 0
+		for o in _pitch.players:
+			if o != id and _pitch.players[o].get_global_rect().has_point(at):
+				other = o
+		if other:
+			_exchange(id, other)
+		elif _pitch.get_global_rect().has_point(at):
+			var row: String = _pitch.row_at(at - _pitch.global_position)
+			if not in_team or row != Game.row_of_id(id):
+				var err := Game.place(id, row)
+				if err != "":
+					Game.error_toast.emit(err)
+				else:
+					Sound.play("drop")
+	sel = id
 	build.call_deferred()
+
+
+## a と b を入れ替える（どちらかが控えならその人が出場）
+func _exchange(a: int, b: int) -> void:
+	var err := ""
+	if Game.in_team(a) and Game.in_team(b):
+		Game.swap(a, b)
+	elif Game.in_team(b):
+		err = Game.place(a, Game.row_of_id(b), b)
+	elif Game.in_team(a):
+		err = Game.place(b, Game.row_of_id(a), a)
+	if err != "":
+		Game.error_toast.emit(err)
+	else:
+		Sound.play("drop")
 
 
 func _end_drag() -> void:
 	if _drag.is_empty():
 		return
-	if is_instance_valid(_drag.card):
-		_drag.card.modulate.a = 1.0
+	var src = _drag.src
+	if is_instance_valid(src):
+		if src is PitchPlayer:
+			src.lifted = false
+			src.queue_redraw()
+		else:
+			src.modulate.a = 1.0
 	_drag.preview.queue_free()
-	_drag.zone.queue_free()
 	_drag = {}
 
 
-func _detail(id: int) -> void:
-	CharDetail.open(self, id, {"team": true, "on_change": build, "on_swap": _picker.bind(Game.row_of_id(id), id)})
+# ---------------------------------------------------------------- 連携スキル
 
-
-func _toast(err: String) -> void:
-	if err != "":
-		Game.error_toast.emit(err)
-
-
-# ---------------------------------------------------------------- スキル一覧
-
-## 出場メンバーの固有スキルと、連携スキルの一覧
-func _skill_list(entries: Array) -> VBoxContainer:
+func _show_combos() -> void:
+	var entries := Game.formation_entries()
 	var v := UI.vbox(6)
-	for row in Game.GRID_ROWS:
-		for p in entries:
-			if p.row != row:
-				continue
-			var c: Dictionary = Game.chars[p.id]
-			var h := UI.hbox(8)
-			var card = UI.card(p.id, false, [], Callable(), 34)
-			card.custom_minimum_size = Vector2(50, 50)
-			card.size_flags_vertical = SIZE_SHRINK_CENTER
-			h.add_child(card)
-			var sv := UI.vbox(1)
-			sv.size_flags_horizontal = SIZE_EXPAND_FILL
-			var nh := UI.hbox(6)
-			nh.add_child(UI.label(c.name, 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
-			nh.add_child(UI.label(UI.stars(c.rarity), 9, UI.STAR))
-			sv.add_child(nh)
-			var sh := UI.hbox(6)
-			sh.add_child(UI.label(c.skill.name, 14, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
-			sh.add_child(UI.tag("Lv%d" % p.slv, UI.CYAN, 9, false))
-			sv.add_child(sh)
-			sv.add_child(UI.wrap_label(Game.skill_text(p.id, p.slv), 11, UI.CYAN))
-			h.add_child(sv)
-			var pn := UI.panel(UI.PANEL, 6, UI.ROW_COLORS[row])
-			pn.add_child(h)
-			UI.on_tap(pn, _detail.bind(p.id))
-			v.add_child(pn)
-
-	v.add_child(UI.label("連携スキル", 12, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	v.add_child(UI.title("連携スキル", "発動中と、あと1人で発動するもの"))
 	var ids := entries.map(func(p): return p.id)
 	var shown := 0
 	for cb in Game.combos:
 		var missing: Array = cb.ids.filter(func(i): return not i in ids)
-		# 発動中のものと、あと1人で発動するもの（その1人を持っている）を出す
 		if missing.size() > 1 or (missing.size() == 1 and not Game.owned(missing[0])):
 			continue
 		shown += 1
 		var on := missing.is_empty()
-		var pn := UI.panel(UI.PANEL, 8, UI.PINK if on else UI.LINE)
+		var pn := UI.panel(UI.PANEL2, 8, UI.PINK if on else UI.LINE)
 		var cv := UI.vbox(3)
 		var ch := UI.hbox(6)
 		ch.add_child(UI.label(cb.name, 13, UI.INK if on else UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
@@ -314,7 +334,11 @@ func _skill_list(entries: Array) -> VBoxContainer:
 		v.add_child(pn)
 	if shown == 0:
 		v.add_child(UI.label("発動中の連携はありません。組み合わせは各キャラの詳細で見られます", 10, UI.DIM))
-	return v
+	var holder := {"m": null}
+	var cl := UI.button("とじる", "ghost", 13, 36)
+	cl.pressed.connect(func(): UI.close(holder.m))
+	v.add_child(cl)
+	holder.m = UI.modal(self, v)
 
 
 # ---------------------------------------------------------------- 選手をえらぶ
@@ -323,7 +347,7 @@ func _skill_list(entries: Array) -> VBoxContainer:
 func _picker(row: String, replace := 0) -> void:
 	var v := UI.vbox(8)
 	var room: int = Game.cost_cap() - Game.formation_cost() + (Game.chars[replace].rarity if replace else 0)
-	v.add_child(UI.title("交代する選手" if replace else "選手をえらぶ", "%s の列 ／ 使えるコスト %d" % [row, room]))
+	v.add_child(UI.title("交代する選手" if replace else "選手をえらぶ", "%s ／ 使えるコスト %d" % [UI.POS_LABEL[row], room]))
 	var ids: Array = Game.save.roster.keys().map(func(k): return int(k))
 	ids.erase(replace)
 	ids.sort_custom(func(a, b):
@@ -334,16 +358,17 @@ func _picker(row: String, replace := 0) -> void:
 	var holder := {"m": null}
 	for id in ids:
 		var c: Dictionary = Game.chars[id]
-		var lines: Array = [c.name, UI.label(UI.stars(c.rarity), 9, UI.STAR, HORIZONTAL_ALIGNMENT_CENTER)]
+		var lines: Array = [c.name, UI.label(UI.stars(c.rarity), 9, UI.GOLD, HORIZONTAL_ALIGNMENT_CENTER)]
 		var here := Game.in_team(id)
 		if here:
-			lines.append(UI.tag("出場中:" + Game.row_of_id(id), UI.SUB, 8))
+			lines.append(UI.tag("出場中:" + UI.POS_LABEL[Game.row_of_id(id)], UI.SUB, 8))
 		var card = UI.card(id, false, lines, func():
 			var err := Game.place(id, row, replace)
 			if err != "":
 				Game.error_toast.emit(err)
 				return
 			Sound.play("drop")
+			sel = id
 			UI.close(holder.m)
 			build(), 40, func(): CharDetail.open(self, id, {"readonly": true}))
 		card.size_flags_horizontal = SIZE_EXPAND_FILL

@@ -20,7 +20,8 @@ func _ready() -> void:
 	get_tree().root.add_child.call_deferred(main)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	for tab in ["編成", "試合", "図鑑", "ガチャ", "設定"]:
+	await _shot("試合")
+	for tab in ["編成", "図鑑", "ガチャ", "設定"]:
 		main.show_screen(tab)
 		await _shot(tab)
 	# 編成：詳細と選手選択
@@ -78,10 +79,6 @@ func _ready() -> void:
 	Game.auto_formation()
 	main.show_screen("編成")
 	await _shot("編成_おまかせ")
-	var ts2 = main.content.get_child(0)
-	ts2.view = "スキル"
-	ts2.build()
-	await _shot("編成_スキル")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	get_tree().quit()
 

@@ -5,6 +5,7 @@ extends VBoxContainer
 const UI = preload("res://scripts/ui/UI.gd")
 const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 const MiniCourt = preload("res://scripts/ui/MiniCourt.gd")
+const Stadium = preload("res://scripts/ui/Stadium.gd")
 ## 試合の演出にかける秒数（設定の表示速度）
 const MATCH_SECONDS := {"normal": 12.0, "fast": 5.0, "instant": 0.0}
 const ZONE_COLORS := {"up": Color("3ddc97"), "champion": Color("ffc83d"), "down": Color("ff4d6d"), "": Color(0, 0, 0, 0)}
@@ -27,19 +28,20 @@ func show_league() -> void:
 	var L: Dictionary = Game.save.league
 	var order := Game.standings()
 	var body := UI.vbox(8)
-	var head := UI.hbox()
 	var rd := "全日程終了" if Game.season_over() else "第%d節 / 5" % (int(L.round) + 1)
-	head.add_child(UI.title("%d部リーグ" % Game.division(), "SEASON %d ・ %s" % [L.season, rd]))
-	body.add_child(head)
+	body.add_child(UI.title("%d部リーグ" % Game.division(), "SEASON %d ・ %s" % [L.season, rd]))
 
 	# いまの順位（くわしくは順位表のモーダルで）
 	var rank := order.find(0) + 1
 	var z := Game.zone(rank)
+	var zc: Color = ZONE_COLORS[z] if z != "" else UI.LINE
 	var me: Dictionary = L.table[0]
-	var rp := UI.panel(UI.PANEL, 8, ZONE_COLORS[z] if z != "" else UI.LINE)
-	var rh := UI.hbox(10)
-	var rl := UI.label("%d位" % rank, 22, ZONE_COLORS[z] if z != "" else UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true)
-	rh.add_child(rl)
+	var rp := UI.panel(UI.PANEL, 8, zc)
+	var rsb: StyleBoxFlat = rp.get_theme_stylebox("panel")
+	rsb.set_border_width_all(1)
+	rsb.border_width_left = 3
+	var rh := UI.hbox(12)
+	rh.add_child(UI.label("%d位" % rank, 24, zc if z != "" else UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var rv := UI.vbox(0)
 	rv.add_child(UI.label("勝点 %d" % me.pts, 13, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
 	rv.add_child(UI.label("%d勝 %d分 %d敗" % [me.w, me.d, me.l], 10, UI.SUB))
@@ -69,40 +71,47 @@ func show_league() -> void:
 		add_child(UI.scroll(body))
 		return
 
-	# 次の相手
+	# NEXT MATCH：両チームのエンブレムと選手、戦力の比較
 	var opp_i := Game.opponent_index()
 	var opp := Game.lineup(opp_i)
 	var mine := Game.formation_entries()
 	var np := UI.panel(UI.PANEL, 8, UI.CYAN)
+	var nsb: StyleBoxFlat = np.get_theme_stylebox("panel")
+	nsb.set_border_width_all(1)
+	nsb.border_color = Color(UI.CYAN, 0.7)
 	var nv := UI.vbox(6)
 	var nh := UI.hbox(6)
-	nh.add_child(UI.label("VS", 12, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
-	nh.add_child(UI.label(L.teams[opp_i].name, 15, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	nh.add_child(UI.label("NEXT MATCH", 12, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
 	nh.add_child(UI.spacer())
 	nh.add_child(UI.label("%d位 ・ %s" % [order.find(opp_i) + 1, Game.formation_name(opp)], 11, UI.SUB))
 	nv.add_child(nh)
-	nv.add_child(_mini_pitch(opp))
-
+	var st = Stadium.new()
+	st.my_name = "もふもふ蹴球団"
+	st.opp_name = L.teams[opp_i].name
+	st.mine = mine
+	st.opp = opp
+	st.on_opp_tap = func(id): CharDetail.open(self, id, {"readonly": true})
+	nv.add_child(st)
 	var a := Game.team_power(mine)
 	var b := Game.team_power(opp)
 	for s in [["攻撃", "atk", UI.ROW_COLORS["攻"]], ["守備", "def", UI.ROW_COLORS["守"]]]:
 		var row := UI.hbox(6)
 		var mv: float = a[s[1]]
 		var ov: float = b[s[1]]
-		var l1 := UI.label(str(int(mv)), 12, UI.CYAN, HORIZONTAL_ALIGNMENT_RIGHT, true)
+		var l1 := UI.label(str(int(mv)), 13, UI.CYAN, HORIZONTAL_ALIGNMENT_RIGHT, true)
 		l1.custom_minimum_size.x = 30
 		row.add_child(l1)
 		var b1 := UI.bar(mv, mv + ov, UI.CYAN, 5)
 		b1.fill_mode = ProgressBar.FILL_END_TO_BEGIN
 		b1.size_flags_horizontal = SIZE_EXPAND_FILL
 		row.add_child(b1)
-		var mid := UI.label(s[0], 10, s[2], HORIZONTAL_ALIGNMENT_CENTER, true)
-		mid.custom_minimum_size.x = 30
+		var mid := UI.label(s[0], 11, s[2], HORIZONTAL_ALIGNMENT_CENTER, true)
+		mid.custom_minimum_size.x = 34
 		row.add_child(mid)
 		var b2 := UI.bar(ov, mv + ov, UI.PINK, 5)
 		b2.size_flags_horizontal = SIZE_EXPAND_FILL
 		row.add_child(b2)
-		var l2 := UI.label(str(int(ov)), 12, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var l2 := UI.label(str(int(ov)), 13, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l2.custom_minimum_size.x = 30
 		row.add_child(l2)
 		nv.add_child(row)
@@ -121,18 +130,46 @@ func show_league() -> void:
 	seg.size_flags_horizontal = SIZE_EXPAND_FILL
 	th.add_child(seg)
 	body.add_child(th)
-	body.add_child(UI.label(Game.TACTIC_DESC[Game.save.tactic], 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
+
+	# 自分の編成
+	var fp := UI.panel(UI.PANEL, 8)
+	var fv := UI.vbox(6)
+	var fh := UI.hbox(6)
+	fh.add_child(UI.label("自分の編成", 12, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
+	fh.add_child(UI.spacer())
+	var link := UI.label("編成を確認 ›", 12, UI.CYAN, HORIZONTAL_ALIGNMENT_RIGHT, true)
+	UI.on_tap(link, func():
+		var m := get_tree().current_scene
+		if m and m.has_method("show_screen"):
+			m.show_screen("編成"))
+	fh.add_child(link)
+	fv.add_child(fh)
+	var cards := UI.hbox(4)
+	cards.alignment = BoxContainer.ALIGNMENT_CENTER
+	var order_rows := {"攻": 0, "中": 1, "守": 2, "GK": 3}
+	var sorted := mine.duplicate()
+	sorted.sort_custom(func(x, y): return order_rows[x.row] < order_rows[y.row])
+	for p in sorted:
+		var c = UI.card(p.id, false, [UI.label(UI.stars(Game.chars[p.id].rarity), 8, UI.GOLD, HORIZONTAL_ALIGNMENT_CENTER)], Callable(), 28)
+		c.custom_minimum_size = Vector2(42, 48)
+		c.size_flags_horizontal = SIZE_EXPAND_FILL
+		UI.on_tap(c, func(): CharDetail.open(self, p.id, {"readonly": true}))
+		cards.add_child(c)
+	if sorted.is_empty():
+		cards.add_child(UI.label("まだ誰も出場していない", 11, UI.DIM))
+	fv.add_child(cards)
+	fp.add_child(fv)
+	body.add_child(fp)
 	add_child(UI.scroll(body))
 
-	var go := UI.button("キックオフ", "pink", 18, 48)
+	var go := UI.icon_button("キックオフ", "ball", "pink", 18, 50)
 	go.set_meta("sfx", "")
 	var cost := Game.formation_cost()
-	if mine.size() < Game.TEAM_SIZE:
+	if mine.size() < Game.TEAM_SIZE or cost > Game.cost_cap():
 		go.disabled = true
-		go.text = "編成で7体を並べてね"
-	elif cost > Game.cost_cap():
-		go.disabled = true
-		go.text = "コスト上限オーバー（%d/%d）" % [cost, Game.cost_cap()]
+		var msg := "編成で7体を並べてね" if mine.size() < Game.TEAM_SIZE else "コスト上限オーバー（%d/%d）" % [cost, Game.cost_cap()]
+		go.get_child(0).get_child(1).text = msg
+		go.get_child(0).get_child(1).add_theme_font_size_override("font_size", 14)
 	go.pressed.connect(_kickoff)
 	add_child(go)
 
@@ -177,36 +214,6 @@ func _table(order: Array, T: Array) -> PanelContainer:
 	v.add_child(legend)
 	p.add_child(v)
 	return p
-
-
-## 相手のメンバーを列ごとに中央寄せで見せる
-func _mini_pitch(members: Array) -> VBoxContainer:
-	var v := UI.vbox(2)
-	for row in Game.GRID_ROWS:
-		var h := UI.hbox(3)
-		var lab := UI.label(row, 9, UI.ROW_COLORS[row], HORIZONTAL_ALIGNMENT_CENTER, true)
-		lab.custom_minimum_size.x = 22
-		lab.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lab.size_flags_vertical = SIZE_FILL
-		h.add_child(lab)
-		var center := CenterContainer.new()
-		center.size_flags_horizontal = SIZE_EXPAND_FILL
-		var cards := UI.hbox(3)
-		for m in members:
-			if m.row != row:
-				continue
-			var card = UI.card(m.id, false, [], func(): CharDetail.open(self, m.id, {"readonly": true}), 30)
-			card.custom_minimum_size = Vector2(58, 40)
-			if not Game.owned(m.id):
-				card.badge = "NEW"
-			cards.add_child(card)
-		center.add_child(cards)
-		h.add_child(center)
-		var r := Control.new()
-		r.custom_minimum_size.x = 22
-		h.add_child(r)
-		v.add_child(h)
-	return v
 
 
 func _kickoff() -> void:

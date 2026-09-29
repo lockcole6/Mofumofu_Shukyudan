@@ -1,68 +1,94 @@
 extends Node
-## 開発用：編成画面の「長押しで持ち上げて運ぶ」の動作確認（終わるとセーブは消える）
+## 開発用：編成画面の操作を検査する（終わるとセーブは消える）
+## タップで選択・長押しで詳細・ドラッグで入れ替え／列の移動／控えへ下げる／控えから出場・入れ替えボタン
 
 
 func _ready() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.add_character(22)   # 控えにクマ
 	var main: Control = load("res://scenes/Main.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(main)
 	await _frames()
 	main.show_screen("編成")
 	await _frames()
 	var ts = main.content.get_child(0)
-	print("start: 攻=", Game.row_ids("攻"), " 中=", Game.row_ids("中"), " 守=", Game.row_ids("守"))
+	print("start: FW=", Game.row_ids("攻"), " MF=", Game.row_ids("中"), " DF=", Game.row_ids("守"), " GK=", Game.row_ids("GK"))
 
-	# 1) タヌキ(攻)を長押し → ネコ(中)の上で離す → 入れ替え
-	await _drag(ts, 2, ts._cards[1].get_global_rect().get_center())
-	print("swap: 攻=", Game.row_ids("攻"), " 中=", Game.row_ids("中"))
+	# 1) タップで選択 → 下の欄がその選手になる
+	_tap(_center(ts._pitch.players[9]))
+	await _frames()
+	print("tap select: sel=", ts.sel, " (イルカ=9)  layers=", _layers())
 
-	# 2) ペンギン(守)を長押し → 攻の列の空いているところで離す → 移動
-	var r: Rect2 = ts._rows["攻"].get_global_rect()
-	await _drag(ts, 3, Vector2(r.position.x + 40, r.get_center().y))
-	print("move: 攻=", Game.row_ids("攻"), " 守=", Game.row_ids("守"))
+	# 2) 長押しで詳細
+	await _long_press(_center(ts._pitch.players[9]))
+	print("long press: layers=", _layers(), " dragging=", not ts._drag.is_empty())
+	Nav.back()
+	await _frames()
 
-	# 3) ゾウを長押し → 右端の「外す」で離す → 外れる
+	# 3) タヌキ(FW)をネコ(MF)の上へ → 入れ替え
+	await _drag(_center(ts._pitch.players[2]), _center(ts._pitch.players[1]))
+	print("swap: FW=", Game.row_ids("攻"), " MF=", Game.row_ids("中"))
+
+	# 4) ペンギン(DF)を FW の帯の空いたところへ → 移動
 	var pr: Rect2 = ts._pitch.get_global_rect()
-	await _drag(ts, 6, Vector2(pr.end.x - 20, pr.get_center().y))
-	print("remove: in_team(6)=", Game.in_team(6), " team size=", Game.save.formation.size())
+	await _drag(_center(ts._pitch.players[3]), Vector2(pr.position.x + 20, pr.position.y + pr.size.y * 0.13))
+	print("move: FW=", Game.row_ids("攻"), " DF=", Game.row_ids("守"))
 
-	# 3b) 待たずに押したまま動かす → すぐ持ち上がる（カピバラをウサギと入れ替え）
-	var fp: Vector2 = ts._cards[4].get_global_rect().get_center()
-	var tp: Vector2 = ts._cards[5].get_global_rect().get_center()
-	_mouse(fp, true)
-	for i in 10:
-		_move(fp.lerp(tp, (i + 1) / 10.0))
-		await get_tree().process_frame
-	print("  lifted by moving: ", not ts._drag.is_empty())
-	_mouse(tp, false)
-	await _frames()
-	print("move-lift swap: GK=", Game.row_ids("GK"), " 攻=", Game.row_ids("攻"))
+	# 5) ゾウを控えへ → 外れる
+	await _drag(_center(ts._pitch.players[6]), ts._bench.get_global_rect().get_center())
+	print("to bench: in_team(6)=", Game.in_team(6), " team=", Game.save.formation.size())
 
-	# 4) 短いタップ → 詳細が開く（持ち上がらない）
-	var p: Vector2 = ts._cards[9].get_global_rect().get_center()
-	_mouse(p, true)
-	_mouse(p, false)
+	# 6) 控えのクマをピッチの DF の帯へ → 出場
+	var bear: Control = null
+	for c in ts._bench.find_children("*", "MarginContainer", true, false):
+		if "cid" in c and c.cid == 22:
+			bear = c
+	pr = ts._pitch.get_global_rect()
+	await _drag(_center(bear), Vector2(pr.get_center().x, pr.position.y + pr.size.y * 0.63))
+	print("from bench: in_team(22)=", Game.in_team(22), " DF=", Game.row_ids("守"))
+
+	# 7) 選択中の選手の「入れ替え」ボタン → 選手選択が開く
+	_tap(_center(ts._pitch.players[4]))
 	await _frames()
-	print("tap -> detail layers=", get_tree().root.get_children().filter(func(c): return c.has_meta("layer")).size(), " dragging=", not ts._drag.is_empty())
+	var btn: Button = null
+	for b in ts.find_children("*", "Button", true, false):
+		if b.find_children("*", "Label", true, false).any(func(l): return l.text == "入れ替え"):
+			btn = b
+	_tap(_center(btn))
+	await _frames()
+	print("swap button: layers=", _layers())
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	get_tree().quit()
 
 
-func _drag(ts, id: int, to: Vector2) -> void:
-	var from: Vector2 = ts._cards[id].get_global_rect().get_center()
+func _center(c: Control) -> Vector2:
+	return c.get_global_rect().get_center()
+
+
+func _layers() -> int:
+	return get_tree().root.get_children().filter(func(c): return c.has_meta("layer")).size()
+
+
+func _drag(from: Vector2, to: Vector2) -> void:
 	_mouse(from, true)
-	await get_tree().create_timer(0.3).timeout
-	print("  lifted ", Game.chars[id].name, ": ", not ts._drag.is_empty())
-	for i in 10:
-		_move(from.lerp(to, (i + 1) / 10.0))
+	for i in 12:
+		_move(from.lerp(to, (i + 1) / 12.0))
 		await get_tree().process_frame
-	if id == 6:
-		await RenderingServer.frame_post_draw
-		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://tools/shots"))
-		get_viewport().get_texture().get_image().save_png(ProjectSettings.globalize_path("res://tools/shots/drag.png"))
 	_mouse(to, false)
 	await _frames()
+
+
+func _long_press(p: Vector2) -> void:
+	_mouse(p, true)
+	await get_tree().create_timer(0.6).timeout
+	_mouse(p, false)
+	await _frames()
+
+
+func _tap(p: Vector2) -> void:
+	_mouse(p, true)
+	_mouse(p, false)
 
 
 func _frames() -> void:

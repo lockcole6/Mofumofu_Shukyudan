@@ -38,7 +38,7 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 	hv.add_child(UI.label(UI.stars(c.rarity) + "  コスト%d" % c.rarity, 14, rc))
 	var tags := UI.flow(4)
 	tags.add_child(UI.tag(c.habitat, UI.HABITAT_COLORS[c.habitat], 10, false))
-	tags.add_child(UI.tag("得意 " + c.pos, UI.ROW_COLORS[c.pos], 10, false))
+	tags.add_child(UI.tag("得意 " + UI.POS_LABEL[c.pos], UI.ROW_COLORS[c.pos], 10, false))
 	tags.add_child(UI.tag(SOURCE_TEXT[c.source], UI.SUB, 10, false))
 	hv.add_child(tags)
 	head.add_child(hv)
@@ -124,7 +124,7 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 		ah.add_child(sell)
 		v.add_child(ah)
 		if opts.get("team", false) and not Game.in_team(id):
-			var go := UI.button("出場させる（%sの列へ）" % c.pos, "primary", 13, 36)
+			var go := UI.button("出場させる（%sへ）" % UI.POS_LABEL[c.pos], "primary", 13, 36)
 			go.pressed.connect(func():
 				var err := Game.place(id, c.pos)
 				if err != "":
