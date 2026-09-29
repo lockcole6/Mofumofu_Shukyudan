@@ -3,6 +3,7 @@ extends Node
 
 signal changed
 signal toast(text: String)
+signal error_toast(text: String)   # うまくいかなかったとき（音がちがう）
 
 const SAVE_PATH := "user://save.json"
 const SAVE_VERSION := 3
@@ -232,7 +233,7 @@ func _default_save() -> Dictionary:
 		"tactic": "バランス",
 		"pages": {},
 		"record": {"wins": 0, "draws": 0, "losses": 0, "best": 5, "titles": 0},
-		"settings": {"speed": "normal"},
+		"settings": {"speed": "normal", "bgm": 0.7, "sfx": 0.8},
 		"debug": {"rates": [60.0, 30.0, 8.0, 2.0], "pity": 50},
 		"league": {},
 	}

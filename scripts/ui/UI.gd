@@ -187,6 +187,7 @@ static func on_tap(c: Control, cb: Callable, on_long := Callable(), long_time :=
 			elif st.down:
 				st.down = false
 				if not st.long and e.global_position.distance_to(st.pos) < 12.0 and cb.is_valid():
+					Sound.play("tap")
 					cb.call()
 		elif e is InputEventMouseMotion and st.down and not st.long and lift_on_move and on_long.is_valid() 				and e.global_position.distance_to(st.pos) >= 8.0:
 			st.long = true
@@ -327,6 +328,8 @@ static func modal(from: Node, content: Control) -> Control:
 	root.add_child(x)
 	from.get_tree().root.add_child(root)
 	Nav.push(root, root.queue_free)
+	Sound.play("open")
+	root.tree_exiting.connect(func(): Sound.play("close"))
 	return root
 
 

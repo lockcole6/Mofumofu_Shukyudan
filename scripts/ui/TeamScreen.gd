@@ -69,6 +69,7 @@ func build() -> void:
 		info.add_child(UI.label("タップで詳細 ／ 押したまま動かして移動", 10, UI.DIM))
 	ih.add_child(info)
 	var auto := UI.button("おまかせ編成", "ghost", 11, 28)
+	auto.set_meta("sfx", "skill")
 	auto.size_flags_vertical = SIZE_SHRINK_CENTER
 	auto.pressed.connect(_auto)
 	ih.add_child(auto)
@@ -166,6 +167,7 @@ func _start_drag(id: int) -> void:
 		return
 	var src: Control = _cards[id]
 	src.modulate.a = 0.25
+	Sound.play("lift")
 	# 指についてくるカード
 	var c: Dictionary = Game.chars[id]
 	var preview = UI.card(id, false, [c.name], Callable(), 36)
@@ -211,18 +213,23 @@ func _drop(at: Vector2) -> void:
 	_end_drag()
 	if removed:
 		Game.remove_from_team(id)
+		Sound.play("remove")
 		Game.toast.emit("%s を編成から外しました" % Game.chars[id].name)
 	else:
 		var done := false
 		for other in _cards:
 			if other != id and _cards[other].get_global_rect().has_point(at):
 				Game.swap(id, other)
+				Sound.play("drop")
 				done = true
 				break
 		if not done:
 			for row in _rows:
 				if _rows[row].get_global_rect().has_point(at) and row != Game.row_of_id(id):
-					_toast(Game.place(id, row))
+					var err := Game.place(id, row)
+					_toast(err)
+					if err == "":
+						Sound.play("drop")
 					break
 	build.call_deferred()
 
@@ -243,7 +250,7 @@ func _detail(id: int) -> void:
 
 func _toast(err: String) -> void:
 	if err != "":
-		Game.toast.emit(err)
+		Game.error_toast.emit(err)
 
 
 # ---------------------------------------------------------------- スキル一覧
@@ -334,8 +341,9 @@ func _picker(row: String, replace := 0) -> void:
 		var card = UI.card(id, false, lines, func():
 			var err := Game.place(id, row, replace)
 			if err != "":
-				Game.toast.emit(err)
+				Game.error_toast.emit(err)
 				return
+			Sound.play("drop")
 			UI.close(holder.m)
 			build(), 40, func(): CharDetail.open(self, id, {"readonly": true}))
 		card.size_flags_horizontal = SIZE_EXPAND_FILL

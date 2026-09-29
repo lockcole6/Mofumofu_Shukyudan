@@ -19,6 +19,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 
 Game="*res://scripts/autoload/Game.gd"
 Nav="*res://scripts/autoload/Nav.gd"
+Sound="*res://scripts/autoload/Sound.gd"
 
 [display]
 

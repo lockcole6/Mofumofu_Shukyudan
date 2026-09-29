@@ -21,6 +21,7 @@ func _ready() -> void:
 
 
 func show_league() -> void:
+	Sound.bgm("menu")
 	_view += 1
 	UI.clear(self)
 	var L: Dictionary = Game.save.league
@@ -124,6 +125,7 @@ func show_league() -> void:
 	add_child(UI.scroll(body))
 
 	var go := UI.button("キックオフ", "pink", 18, 48)
+	go.set_meta("sfx", "")
 	var cost := Game.formation_cost()
 	if mine.size() < Game.TEAM_SIZE:
 		go.disabled = true
@@ -216,6 +218,8 @@ func _kickoff() -> void:
 	var view := _view
 	UI.clear(self)
 	Nav.push(self, show_league)
+	Sound.bgm("match")
+	Sound.play("whistle")
 
 	var board := PanelContainer.new()
 	var bsb := UI.sbox(UI.PANEL, 6, Color(UI.CYAN, 0.4), 1, 10)
@@ -273,6 +277,13 @@ func _kickoff() -> void:
 				"goal": court.goal(e.team)
 				"cancel": court.save_shot(e.team)
 				"steal", "chance": court.steal(e.team)
+			if not state.skip:
+				if e.goal:
+					Sound.play("goal" if mine else "opp_goal")
+				elif e.get("kind", "") == "cancel":
+					Sound.play("save")
+				elif e.get("skill", false):
+					Sound.play("skill")
 			var txt: String = ("%d'  " % e.min if e.min > 0 else "") + e.text
 			var col: Color = UI.SUB
 			if e.goal:
@@ -287,10 +298,12 @@ func _kickoff() -> void:
 		if minute >= 90.0 and events.is_empty():
 			break
 	if not state.skip:
+		Sound.play("whistle_end")
 		await get_tree().create_timer(1.0).timeout
 		if not is_inside_tree() or view != _view:
 			return
 	court.queue_free()
+	Sound.bgm("menu")
 	score.text = "%d - %d" % result.goals
 	clock.text = "FULL TIME"
 	skip.queue_free()
@@ -301,6 +314,7 @@ func _kickoff() -> void:
 
 func _show_result() -> void:
 	var o: String = result.outcome
+	Sound.play(o)
 	var txt: String = {"win": "WIN", "draw": "DRAW", "lose": "LOSE"}[o]
 	var col: Color = {"win": UI.LIME, "draw": UI.GOLD, "lose": UI.RED}[o]
 	var p := UI.panel(UI.PANEL, 10, col)
@@ -335,7 +349,7 @@ func _show_result() -> void:
 				if scouted:
 					return
 				if rate <= 0:
-					Game.toast.emit("ガチャ限定の選手はスカウトできない")
+					Game.error_toast.emit("ガチャ限定の選手はスカウトできない")
 					return
 				pick_i = i
 				for k in cards.size():
@@ -349,6 +363,7 @@ func _show_result() -> void:
 			cards.append(card)
 			g.add_child(card)
 		rv.add_child(g)
+		go.set_meta("sfx", "")
 		go.pressed.connect(func():
 			if pick_i >= 0 and not scouted:
 				go.queue_free()
@@ -377,6 +392,7 @@ func _scout(i: int, box: VBoxContainer) -> void:
 	var m: Dictionary = result.opp[i]
 	var c: Dictionary = Game.chars[m.id]
 	var res := Game.try_scout(m, rate)
+	Sound.play("scout_ok" if res.ok else "scout_ng")
 	for ch in box.get_children():
 		if ch is GridContainer:
 			ch.queue_free()
@@ -399,6 +415,7 @@ func _season_end() -> void:
 	var table: Array = Game.save.league.table.duplicate(true)
 	var teams: Array = Game.save.league.teams
 	var s := Game.end_season()
+	Sound.play({"up": "promote", "champion": "champion", "down": "lose", "": "draw"}[s.zone])
 	_view += 1
 	UI.clear(self)
 	Nav.push(self, show_league)

@@ -59,6 +59,7 @@ func build() -> void:
 	sh.add_child(sv)
 	var sell := UI.button("◆ +%d" % sur.y, "ghost", 13, 34)
 	sell.disabled = sur.x == 0
+	sell.set_meta("sfx", "coin")
 	sell.pressed.connect(func():
 		Game.toast.emit("余り%d体を売却して ◆%d を手に入れた" % [sur.x, Game.sell_all_surplus()]))
 	sh.add_child(sell)

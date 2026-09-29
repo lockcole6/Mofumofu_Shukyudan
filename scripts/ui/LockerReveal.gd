@@ -64,6 +64,8 @@ func _show_locker() -> void:
 	var rc: Color = UI.DOOR_COLORS[res.rarity]
 	phase = "closed"
 	t = 0.0
+	if res.rarity >= 3:
+		Sound.play("door_shake")
 
 	stage.add_child(UI.label("%d / %d" % [idx + 1, results.size()], 12, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER, true))
 	var box := Control.new()
@@ -127,9 +129,15 @@ func _open() -> void:
 	phase = "opening"
 	door.position.x = 0
 	_kill_tween()
+	Sound.play("door_open")
+	var res: Dictionary = results[idx]
 	_tw = create_tween()
 	_tw.tween_property(door, "scale:x", 0.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	_tw.parallel().tween_property(glow, "color:a", 0.35, 0.25)
+	_tw.tween_callback(func():
+		Sound.play("reveal%d" % mini(res.rarity, 4))
+		if res.new:
+			get_tree().create_timer(0.3).timeout.connect(func(): Sound.play("new")))
 	_tw.tween_property(char_icon, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_tw.parallel().tween_property(info, "modulate:a", 1.0, 0.3)
 	# SKIP で結果一覧に移ったあとに「出た」に戻さないよう、開いている途中のときだけ切り替える
@@ -195,6 +203,7 @@ func _show_summary() -> void:
 		return
 	phase = "summary"
 	_kill_tween()
+	Sound.play("open")
 	_pressed_here = false
 	UI.clear(stage)
 	for c in get_children():

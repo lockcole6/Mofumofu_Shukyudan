@@ -18,6 +18,8 @@ var current := ""
 
 
 func _ready() -> void:
+	# どのボタンも押したら音が鳴るように（ボタンの meta "sfx" で音を変えられる。"" なら鳴らさない）
+	get_tree().node_added.connect(_on_node_added)
 	get_window().theme = _make_theme()
 	var bg := ColorRect.new()
 	bg.color = UI.BG
@@ -89,6 +91,8 @@ func _ready() -> void:
 
 	Game.changed.connect(_refresh_top)
 	Game.toast.connect(show_toast)
+	Game.error_toast.connect(func(t): show_toast(t, true))
+	Sound.bgm("menu")
 	_refresh_top()
 	show_screen("試合", false)
 
@@ -125,8 +129,15 @@ func show_screen(tab: String, record := true) -> void:
 
 
 
-func show_toast(text: String) -> void:
-	var p := UI.panel(UI.PANEL2, 10, UI.LIME)
+func _on_node_added(n: Node) -> void:
+	if n is BaseButton and not n.has_meta("_snd"):
+		n.set_meta("_snd", true)
+		n.pressed.connect(func(): Sound.play(n.get_meta("sfx", "tap")))
+
+
+func show_toast(text: String, error := false) -> void:
+	Sound.play("error" if error else "toast")
+	var p := UI.panel(UI.PANEL2, 10, UI.RED if error else UI.LIME)
 	p.mouse_filter = MOUSE_FILTER_IGNORE
 	p.add_child(UI.wrap_label(text, 13))
 	toast_box.add_child(p)
@@ -136,6 +147,17 @@ func show_toast(text: String) -> void:
 	tw.tween_interval(3.0)
 	tw.tween_property(p, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(p.queue_free)
+
+
+## スライダーのつまみ用の丸
+func _dot(d: int, col: Color) -> Texture2D:
+	var img := Image.create(d, d, false, Image.FORMAT_RGBA8)
+	var r := d / 2.0
+	for y in d:
+		for x in d:
+			var dist := Vector2(x + 0.5 - r, y + 0.5 - r).length()
+			img.set_pixel(x, y, Color(col, clampf(r - dist, 0.0, 1.0)))
+	return ImageTexture.create_from_image(img)
 
 
 func _make_theme() -> Theme:
@@ -170,6 +192,18 @@ func _make_theme() -> Theme:
 	grab.content_margin_right = 3
 	t.set_stylebox("scroll", "VScrollBar", UI.sbox(Color(0, 0, 0, 0), 0, UI.LINE, 0, 0))
 	t.set_stylebox("grabber", "VScrollBar", grab)
+	# 音量スライダー
+	var track := UI.sbox(Color("262c4a"), 3, UI.LINE, 0, 0)
+	track.content_margin_top = 3
+	track.content_margin_bottom = 3
+	t.set_stylebox("slider", "HSlider", track)
+	var fill := UI.sbox(UI.CYAN, 3, UI.CYAN, 0, 0)
+	fill.content_margin_top = 3
+	fill.content_margin_bottom = 3
+	t.set_stylebox("grabber_area", "HSlider", fill)
+	t.set_stylebox("grabber_area_highlight", "HSlider", fill)
+	t.set_icon("grabber", "HSlider", _dot(16, UI.INK))
+	t.set_icon("grabber_highlight", "HSlider", _dot(16, UI.CYAN))
 	t.set_stylebox("grabber_highlight", "VScrollBar", grab)
 	t.set_stylebox("grabber_pressed", "VScrollBar", UI.sbox(UI.CYAN, 3, UI.CYAN, 0, 0))
 	return t

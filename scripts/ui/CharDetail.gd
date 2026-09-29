@@ -110,12 +110,14 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 		var up := UI.button("スキル強化（%d体）" % Game.skill_up_cost(id) if lv < Game.MAX_SLV else "スキル最大", "primary", 13, 38)
 		up.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		up.disabled = not Game.can_skill_up(id)
+		up.set_meta("sfx", "levelup")
 		up.pressed.connect(func():
 			Game.skill_up(id)
 			changed.call())
 		ah.add_child(up)
 		var sell := UI.button("売却 +◆%d" % Game.SELL_VALUE[c.rarity], "ghost", 13, 38)
 		sell.disabled = Game.copies(id) <= 0
+		sell.set_meta("sfx", "coin")
 		sell.pressed.connect(func():
 			Game.sell(id, 1)
 			changed.call())
@@ -126,7 +128,7 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 			go.pressed.connect(func():
 				var err := Game.place(id, c.pos)
 				if err != "":
-					Game.toast.emit(err)
+					Game.error_toast.emit(err)
 					return
 				if opts.has("on_change"):
 					opts.on_change.call()
@@ -142,6 +144,7 @@ static func _build(v: VBoxContainer, id: int, opts: Dictionary, changed: Callabl
 					opts.on_swap.call())
 			th.add_child(sw)
 			var rm := UI.button("外す", "danger", 13, 36)
+			rm.set_meta("sfx", "remove")
 			rm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			rm.pressed.connect(func():
 				Game.remove_from_team(id)

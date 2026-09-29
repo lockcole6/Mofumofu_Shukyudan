@@ -34,6 +34,15 @@ func build() -> void:
 	sp.add_child(sv)
 	v.add_child(sp)
 
+	# 音量
+	var vp := UI.panel()
+	var vv := UI.vbox(8)
+	vv.add_child(UI.label("音量", 12, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
+	for s in [["BGM", "bgm", 0.7], ["効果音", "sfx", 0.8]]:
+		vv.add_child(_volume_row(s[0], s[1], s[2]))
+	vp.add_child(vv)
+	v.add_child(vp)
+
 	var rec: Dictionary = Game.save.record
 	var rp := UI.panel()
 	var rv := UI.vbox(4)
@@ -115,6 +124,34 @@ func _debug() -> Control:
 		v.add_child(b)
 	p.add_child(v)
 	return p
+
+
+func _volume_row(title: String, key: String, def: float) -> HBoxContainer:
+	var h := UI.hbox(8)
+	var l := UI.label(title, 13)
+	l.custom_minimum_size.x = 56
+	h.add_child(l)
+	var sl := HSlider.new()
+	sl.min_value = 0
+	sl.max_value = 100
+	sl.step = 5
+	sl.value = float(Game.save.settings.get(key, def)) * 100.0
+	sl.size_flags_horizontal = SIZE_EXPAND_FILL
+	sl.size_flags_vertical = SIZE_SHRINK_CENTER
+	var num := UI.label("%d" % sl.value, 13, UI.CYAN, HORIZONTAL_ALIGNMENT_RIGHT, true)
+	num.custom_minimum_size.x = 32
+	sl.value_changed.connect(func(x):
+		Game.save.settings[key] = x / 100.0
+		num.text = "%d" % x
+		Sound.apply_volume())
+	# 指を離したら保存して、効果音はためしに鳴らす
+	sl.drag_ended.connect(func(_c):
+		Game.save_game()
+		if key == "sfx":
+			Sound.play("coin"))
+	h.add_child(sl)
+	h.add_child(num)
+	return h
 
 
 func _spin(value: float, lo: float, hi: float, step: float, on_change: Callable) -> SpinBox:
