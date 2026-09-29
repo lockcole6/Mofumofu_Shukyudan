@@ -16,6 +16,9 @@ func _ready() -> void:
 		return
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	# 名前の長さの確認用に、1つは5文字いっぱいにする
+	Game.rename_preset(1, "ゴールマシン")
+	Game.rename_preset(2, "鉄壁の守備陣")
 	var main: Control = load("res://scenes/Main.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(main)
 	await get_tree().process_frame

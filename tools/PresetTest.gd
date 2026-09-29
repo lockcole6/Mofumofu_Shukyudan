@@ -63,6 +63,22 @@ func _ready() -> void:
 	print("preset2 kept: ", Game.formation_name())
 	Game.load_game()
 	print("after reload: preset=", Game.save.preset, " ", Game.formation_name(), " names=", range(5).map(func(i): return Game.preset_name(i)))
+	# 5) 名前：初期は「チーム1」…、長い名前は5文字で切る、空なら初期名、入力欄から変える
+	print("default names: ", range(5).map(func(i): return Game.preset_title(i)))
+	Game.rename_preset(2, "とても長いチーム名")
+	Game.rename_preset(3, "   ")
+	print("long -> ", Game.preset_title(2), "  empty -> ", Game.preset_title(3))
+	main.show_screen("編成")
+	await _frames()
+	var UI = load("res://scripts/ui/UI.gd")
+	UI.rename_dialog(main.content.get_child(0), 0, func(): pass)
+	await _frames()
+	var le: LineEdit = get_tree().root.find_children("*", "LineEdit", true, false)[0]
+	le.text = "こうげき"
+	le.text_submitted.emit(le.text)
+	await _frames()
+	Game.load_game()
+	print("renamed via dialog + reload: ", Game.preset_title(0), "  max_length=", le.max_length if is_instance_valid(le) else -1)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	get_tree().quit()
 

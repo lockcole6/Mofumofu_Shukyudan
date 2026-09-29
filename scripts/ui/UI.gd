@@ -153,25 +153,68 @@ static func icon_button(text: String, icon_kind: String, kind := "primary", size
 
 
 ## 編成プリセット（1〜5）の切り替えバー。切り替えたら on_change を呼ぶ
+## 名前とフォーメーションを2段で出す。選んでいるものをもう一度タップ、または長押しで名前を変える
 static func preset_bar(on_change: Callable) -> HBoxContainer:
 	var h := hbox(4)
-	var l := label("編成", 11, SUB, HORIZONTAL_ALIGNMENT_LEFT, true)
-	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(l)
 	for i in Game.PRESET_COUNT:
 		var on := i == int(Game.save.preset)
-		var b := button("%d  %s" % [i + 1, Game.preset_name(i)], "active" if on else "ghost", 10, 30)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		for st in ["normal", "hover", "pressed", "disabled"]:
-			var sb: StyleBoxFlat = b.get_theme_stylebox(st).duplicate()
-			sb.content_margin_left = 3
-			sb.content_margin_right = 3
-			b.add_theme_stylebox_override(st, sb)
-		b.pressed.connect(func():
-			Game.select_preset(i)
-			on_change.call())
-		h.add_child(b)
+		var p := PanelContainer.new()
+		var sb := sbox(Color(CYAN, 0.16) if on else PANEL2, 3, CYAN if on else LINE, 1, 3)
+		sb.skew = SKEW
+		sb.content_margin_left = 4
+		sb.content_margin_right = 4
+		p.add_theme_stylebox_override("panel", sb)
+		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		p.custom_minimum_size.y = 36
+		var v := vbox(0)
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		var nm := label(Game.preset_title(i), 11, CYAN if on else INK, HORIZONTAL_ALIGNMENT_CENTER, true)
+		nm.clip_text = true
+		nm.custom_minimum_size.x = 20
+		v.add_child(nm)
+		v.add_child(label(Game.preset_name(i), 9, SUB, HORIZONTAL_ALIGNMENT_CENTER))
+		p.add_child(v)
+		var rename := func(): rename_dialog(h, i, on_change)
+		on_tap(p, func():
+			if i == int(Game.save.preset):
+				rename.call()
+			else:
+				Game.select_preset(i)
+				on_change.call()
+				Game.toast.emit("%s に切り替えました（もう一度タップで名前を変更）" % Game.preset_title(i)), rename)
+		h.add_child(p)
 	return h
+
+
+## プリセットの名前を入力してもらう。Web版はブラウザの入力ダイアログ（スマホでもキーボードが確実に出る）
+static func rename_dialog(from: Node, i: int, on_done: Callable) -> void:
+	var cur := Game.preset_title(i)
+	if OS.has_feature("web"):
+		var safe := cur.replace("\\", "").replace("'", "")
+		var r = JavaScriptBridge.eval("prompt('チームの名前（%d文字まで）', '%s')" % [Game.PRESET_NAME_MAX, safe], true)
+		if r != null:
+			Game.rename_preset(i, str(r))
+			on_done.call()
+		return
+	var v := vbox(10)
+	v.add_child(title("チームの名前", "%d文字まで" % Game.PRESET_NAME_MAX))
+	var le := LineEdit.new()
+	le.text = cur
+	le.max_length = Game.PRESET_NAME_MAX
+	le.select_all_on_focus = true
+	le.add_theme_font_size_override("font_size", 18)
+	v.add_child(le)
+	var holder := {"m": null}
+	var ok := button("決定", "primary", 14, 40)
+	var done := func(_t = ""):
+		Game.rename_preset(i, le.text)
+		close(holder.m)
+		on_done.call()
+	ok.pressed.connect(done)
+	le.text_submitted.connect(done)
+	v.add_child(ok)
+	holder.m = modal(from, v)
+	le.grab_focus.call_deferred()
 
 
 static func icon(c: Dictionary, silhouette := false, size := 48) -> TextureRect:

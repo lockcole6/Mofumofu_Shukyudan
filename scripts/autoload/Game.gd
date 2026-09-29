@@ -13,6 +13,7 @@ const ROW_MAX := {"攻": 3, "中": 3, "守": 3, "GK": 1}
 const POS_LABEL := {"攻": "FW", "中": "MF", "守": "DF", "GK": "GK"}
 ## おまかせ編成の型（GK・DF・MF・FW の人数）
 const PRESET_COUNT := 5
+const PRESET_NAME_MAX := 5    # プリセット名の最大文字数（ボタンからはみ出さないように）
 ## おまかせで枠を埋める順番（先に埋める列ほど、コストの高い強い選手が入りやすい）
 const AUTO_ORDER := {
 	"攻撃型": ["攻", "攻", "中", "攻", "中", "GK", "守"],
@@ -246,6 +247,7 @@ func _default_save() -> Dictionary:
 		"formation": [],
 		"presets": [],     # 編成プリセット（5つ）。いま使っている番号は preset
 		"preset": 0,
+		"preset_names": [],
 		"pages": {},
 		"record": {"wins": 0, "draws": 0, "losses": 0, "best": 5, "titles": 0},
 		"settings": {"speed": "normal", "bgm": 0.7, "sfx": 0.8},
@@ -258,7 +260,15 @@ func _default_save() -> Dictionary:
 	s.presets = [s.formation.duplicate(true)]
 	for i in PRESET_COUNT - 1:
 		s.presets.append([])
+	s.preset_names = _default_preset_names()
 	return s
+
+
+static func _default_preset_names() -> Array:
+	var names := []
+	for i in PRESET_COUNT:
+		names.append("チーム%d" % (i + 1))
+	return names
 
 
 func load_game() -> void:
@@ -280,6 +290,8 @@ func load_game() -> void:
 		save.presets = [save.formation.duplicate(true)]
 		for i in PRESET_COUNT - 1:
 			save.presets.append([])
+	if save.get("preset_names", []).size() != PRESET_COUNT:
+		save.preset_names = _default_preset_names()
 	if save.league.is_empty():
 		new_season(5)
 	_lineup_cache.clear()
@@ -565,6 +577,19 @@ func select_preset(i: int) -> void:
 		save.formation = out
 		_fit_row_max()
 	_lineup_cache.clear()
+	save_game()
+
+
+func preset_title(i: int) -> String:
+	return str(save.preset_names[i])
+
+
+## プリセットの名前を変える（前後の空白は消し、長すぎる分は切る。空なら初期の名前）
+func rename_preset(i: int, text: String) -> void:
+	var t := text.strip_edges().replace("\n", "")
+	if t == "":
+		t = "チーム%d" % (i + 1)
+	save.preset_names[i] = t.substr(0, PRESET_NAME_MAX)
 	save_game()
 
 
