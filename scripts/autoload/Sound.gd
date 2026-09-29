@@ -24,6 +24,10 @@ var _sfx: Array = []
 var _sfx_i := 0
 var _cache := {}
 var _last := {}          # 同じ音が同時にいくつも鳴らないように
+## Web版はブラウザの決まりで、画面に触るまで音が出ない。その間にBGMを始めると、
+## 最初に触った瞬間にいきなり大きな音で鳴り出すので、触ってから無音からフェードインする
+var _unlocked := not OS.has_feature("web")
+var _unlock_frame := -1
 
 
 func _ready() -> void:
@@ -54,7 +58,8 @@ func _stream(name: String) -> AudioStream:
 
 ## 効果音を鳴らす
 func play(name: String) -> void:
-	if name == "":
+	# 音がまだ出せない間と、音を有効にした最初のタッチでは鳴らさない（いきなり鳴って驚かないように）
+	if name == "" or not _unlocked or Engine.get_process_frames() == _unlock_frame:
 		return
 	var now := Time.get_ticks_msec()
 	if now - int(_last.get(name, -1000)) < 40:
@@ -75,6 +80,12 @@ func bgm(name: String) -> void:
 	if name == _bgm_name:
 		return
 	_bgm_name = name
+	if not _unlocked:
+		return   # 最初に触ったときに始める
+	_switch_bgm(name, FADE)
+
+
+func _switch_bgm(name: String, fade: float) -> void:
 	var old: AudioStreamPlayer = _bgm[_bgm_cur]
 	_bgm_cur = 1 - _bgm_cur
 	var cur: AudioStreamPlayer = _bgm[_bgm_cur]
@@ -86,9 +97,19 @@ func bgm(name: String) -> void:
 	cur.stream = _stream("bgm_" + name)
 	if cur.stream == null:
 		return
-	cur.volume_db = -40.0
+	cur.volume_db = -60.0
 	cur.play()
-	create_tween().tween_property(cur, "volume_db", BGM_DB, FADE)
+	create_tween().tween_property(cur, "volume_db", BGM_DB, fade).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+
+func _input(e: InputEvent) -> void:
+	if _unlocked:
+		return
+	if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed:
+		_unlocked = true
+		_unlock_frame = Engine.get_process_frames()
+		if _bgm_name != "":
+			_switch_bgm(_bgm_name, 1.5)
 
 
 ## 設定の音量をバスに反映する
@@ -96,6 +117,18 @@ func apply_volume() -> void:
 	var st: Dictionary = Game.save.get("settings", {})
 	_set_bus("Music", float(st.get("bgm", 0.7)))
 	_set_bus("SFX", float(st.get("sfx", 0.8)))
+	AudioServer.set_bus_mute(0, bool(st.get("mute", false)))
+
+
+func is_muted() -> bool:
+	return bool(Game.save.settings.get("mute", false))
+
+
+## すべての音のオン/オフ（上のバーのスピーカー）
+func toggle_mute() -> void:
+	Game.save.settings.mute = not is_muted()
+	apply_volume()
+	Game.save_game()
 
 
 func _set_bus(bus: String, v: float) -> void:

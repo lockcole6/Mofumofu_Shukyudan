@@ -46,6 +46,23 @@ func _ready() -> void:
 	logo.add_child(UI.label("蹴球団", 15, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
 	th.add_child(logo)
 	th.add_child(UI.spacer())
+	# 音のオン/オフ
+	var mb := Button.new()
+	mb.flat = true
+	mb.custom_minimum_size = Vector2(32, 28)
+	mb.set_meta("sfx", "")
+	mb.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	var mi := Icon.make("mute" if Sound.is_muted() else "sound", UI.SUB if Sound.is_muted() else UI.INK, 20)
+	mi.set_anchors_and_offsets_preset(PRESET_CENTER)
+	mi.position -= Vector2(10, 10)
+	mb.add_child(mi)
+	mb.pressed.connect(func():
+		Sound.toggle_mute()
+		mi.kind = "mute" if Sound.is_muted() else "sound"
+		mi.color = UI.SUB if Sound.is_muted() else UI.INK
+		mi.queue_redraw()
+		show_toast("音をオフにしました" if Sound.is_muted() else "音をオンにしました"))
+	th.add_child(mb)
 	var dv := UI.tag("", UI.LIME, 11)
 	div_label = dv.get_child(0)
 	dv.size_flags_vertical = SIZE_SHRINK_CENTER

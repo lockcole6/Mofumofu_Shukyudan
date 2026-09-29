@@ -1,6 +1,6 @@
 extends Control
 ## コードで描く小さなアイコン。kind で種類を選ぶ。
-## ball / team / book / gacha / gear / info / swap / flag
+## ball / team / book / gacha / gear / info / swap / flag / sound / mute
 
 var kind := "ball"
 var color := Color.WHITE
@@ -86,6 +86,16 @@ func _draw() -> void:
 			var b2 := c + Vector2(-s * 0.3, s * 0.15)
 			draw_line(a2, b2, color, w * 1.2, true)
 			draw_colored_polygon(PackedVector2Array([b2 + Vector2(-s * 0.12, 0), b2 + Vector2(s * 0.06, -s * 0.13), b2 + Vector2(s * 0.06, s * 0.13)]), color)
+		"sound", "mute":
+			var body := PackedVector2Array([c + Vector2(-s * 0.38, -s * 0.13), c + Vector2(-s * 0.2, -s * 0.13),
+				c + Vector2(s * 0.02, -s * 0.34), c + Vector2(s * 0.02, s * 0.34), c + Vector2(-s * 0.2, s * 0.13), c + Vector2(-s * 0.38, s * 0.13)])
+			draw_colored_polygon(body, color)
+			if kind == "sound":
+				draw_arc(c + Vector2(s * 0.04, 0), s * 0.18, -0.9, 0.9, 12, color, w, true)
+				draw_arc(c + Vector2(s * 0.04, 0), s * 0.34, -0.9, 0.9, 16, color, w, true)
+			else:
+				draw_line(c + Vector2(s * 0.14, -s * 0.16), c + Vector2(s * 0.42, s * 0.16), color, w, true)
+				draw_line(c + Vector2(s * 0.14, s * 0.16), c + Vector2(s * 0.42, -s * 0.16), color, w, true)
 		"flag":
 			draw_line(c + Vector2(-s * 0.28, -s * 0.38), c + Vector2(-s * 0.28, s * 0.4), color, w, true)
 			draw_colored_polygon(PackedVector2Array([c + Vector2(-s * 0.26, -s * 0.36), c + Vector2(s * 0.34, -s * 0.24),
