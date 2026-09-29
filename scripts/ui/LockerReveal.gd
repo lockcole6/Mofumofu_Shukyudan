@@ -134,36 +134,48 @@ func _open() -> void:
 
 var _press_n := 0
 var _long := false
+var _pressed_here := false   # この画面で押されたか（ほかの画面で押して、ここで離した入力は無視する）
+var _press_phase := ""       # 押したときの演出の段階
 
 
 func _gui_input(e: InputEvent) -> void:
 	if not (e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT):
 		return
 	if e.pressed:
-		# 出てきたキャラは長押しで詳細
+		_pressed_here = true
+		_press_phase = phase
 		_long = false
 		_press_n += 1
 		var my := _press_n
-		if phase == "revealed":
+		var shown := idx
+		# 長押しで詳細。扉が開いている途中から押し続けた場合も、キャラが出ていれば開く
+		if phase in ["closed", "opening", "revealed"]:
 			get_tree().create_timer(UI.LONG_PRESS).timeout.connect(func():
-				if _press_n == my and phase == "revealed":
+				if _press_n == my and idx == shown and phase in ["opening", "revealed"]:
 					_long = true
 					CharDetail.open(self, results[idx].id, {"readonly": true}))
 		return
-	# 離したときに進める（長押しで詳細を開いたときは進めない）
+	# 離したとき（ここで押していない・長押しで詳細を開いた、のどちらかなら何もしない）
 	_press_n += 1
+	if not _pressed_here:
+		return
+	_pressed_here = false
 	if _long:
 		_long = false
 		return
-	match phase:
+	match _press_phase:
 		"closed":
-			_open()
+			if phase == "closed":
+				_open()
 		"revealed":
-			idx += 1
-			if idx < results.size():
-				_show_locker()
-			else:
-				_show_summary()
+			# キャラが出ているときに押して離した → 次へ
+			if phase == "revealed":
+				idx += 1
+				if idx < results.size():
+					_show_locker()
+				else:
+					_show_summary()
+		# 扉が開いている途中に押した分は、離しても進めない（演出はそのまま続く）
 
 
 func _show_summary() -> void:

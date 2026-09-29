@@ -58,7 +58,8 @@ func _ready() -> void:
 	await _frames()
 	var dex = main.content.get_child(0)
 	sc = _find_scroll(dex)
-	p = sc.get_global_rect().get_center()
+	var first: Control = sc.find_children("*", "MarginContainer", true, false).filter(func(c): return "cid" in c)[0]
+	p = first.get_global_rect().get_center()
 
 	# 2) タップ → 詳細が開く、戻るで閉じる
 	sc.scroll_vertical = 0

@@ -297,9 +297,15 @@ static func modal(from: Node, content: Control) -> Control:
 	dim.color = Color(0.02, 0.02, 0.06, 0.8)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(dim)
+	# 背景は「押して離した」ときに閉じる。押した瞬間に閉じると、離した入力が下の画面に届いてしまう
+	var st := {"down": false}
 	dim.gui_input.connect(func(e):
-		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
-			close(root))
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed:
+				st.down = true
+			elif st.down:
+				st.down = false
+				close(root))
 	var box := panel(PANEL, 12)
 	var sb: StyleBoxFlat = box.get_theme_stylebox("panel")
 	sb.border_color = Color(CYAN, 0.5)
