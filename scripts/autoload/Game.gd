@@ -9,7 +9,14 @@ const SAVE_PATH := "user://save.json"
 const SAVE_VERSION := 3
 ## 編成は列ごと。上から 攻・中・守・GK。GKは1人、ほかの列は最大4人。
 const GRID_ROWS := ["攻", "中", "守", "GK"]
-const ROW_MAX := {"攻": 4, "中": 4, "守": 4, "GK": 1}
+const ROW_MAX := {"攻": 3, "中": 3, "守": 3, "GK": 1}
+const POS_LABEL := {"攻": "FW", "中": "MF", "守": "DF", "GK": "GK"}
+## おまかせ編成の型（GK・DF・MF・FW の人数）
+const AUTO_STYLES := {
+	"攻撃型": {"GK": 1, "守": 1, "中": 2, "攻": 3},
+	"バランス": {"GK": 1, "守": 2, "中": 2, "攻": 2},
+	"守備型": {"GK": 1, "守": 3, "中": 2, "攻": 1},
+}
 const HABITATS := ["草原", "森", "海", "雪山", "空", "伝説", "蹴球"]
 const TACTICS := ["攻める", "バランス", "守る"]
 const TACTIC_DESC := {
@@ -257,6 +264,7 @@ func load_game() -> void:
 			save[k] = data[k]
 		for f in save.formation:
 			f.id = int(f.id)
+		_fit_row_max()
 	if save.league.is_empty():
 		new_season(5)
 	_lineup_cache.clear()
@@ -275,6 +283,24 @@ static func _intify(v):
 	elif v is float and v == floorf(v):
 		return int(v)
 	return v
+
+
+## 1列の上限を4人から3人に減らしたので、あふれた選手は人数の少ない列へ移す
+func _fit_row_max() -> void:
+	for row in ["攻", "中", "守"]:
+		while row_ids(row).size() > ROW_MAX[row]:
+			var id: int = row_ids(row).back()
+			var to := ""
+			for r in ["中", "守", "攻"]:
+				if r != row and row_ids(r).size() < ROW_MAX[r] and (to == "" or row_ids(r).size() < row_ids(to).size()):
+					to = r
+			for f in save.formation:
+				if int(f.id) == id:
+					if to == "":
+						save.formation.erase(f)
+					else:
+						f.row = to
+					break
 
 
 ## v2 は4x4のマス番号で持っていたので、列に直す（GKが複数なら余りは守へ）
@@ -448,7 +474,7 @@ func place(id: int, row: String, replace := 0) -> String:
 			if from != "":
 				next.append({"id": int(old.id), "row": from})
 		else:
-			return "%sの列は%d人まで" % [row, ROW_MAX[row]]
+			return "%sは%d人まで" % [POS_LABEL[row], ROW_MAX[row]]
 	next.append({"id": id, "row": row})
 	if next.size() > TEAM_SIZE:
 		return "出場できるのは%d体まで" % TEAM_SIZE
@@ -474,9 +500,13 @@ func swap(a: int, b: int) -> void:
 	save_game()
 
 
-## コスト上限の中で強そうな7体を自動で並べる
-func auto_formation() -> void:
-	var slots := [["GK"], ["攻"], ["攻"], ["中"], ["中"], ["守"], ["守"]]
+## コスト上限の中で強そうな7体を、型（攻撃型・バランス・守備型）どおりに自動で並べる
+func auto_formation(style := "バランス") -> void:
+	var st: Dictionary = AUTO_STYLES[style]
+	var slots := [["GK"]]
+	for row in ["攻", "中", "守"]:
+		for n in st[row]:
+			slots.append([row])
 	var budget := cost_cap()
 	var used := {}
 	var out := []
@@ -820,11 +850,12 @@ func season_over() -> bool:
 
 
 ## 自分の試合と、同じ節の他の試合をまとめて行う
-func play_round(tactic: String) -> Dictionary:
+## 作戦はなくした（フォーメーションで攻守のバランスが決まる）。相手の作戦はランダム
+func play_round() -> Dictionary:
 	var L: Dictionary = save.league
 	var opp_i := opponent_index()
 	var opp := lineup(opp_i)
-	var res := simulate(formation_entries(), opp, tactic, TACTICS.pick_random())
+	var res := simulate(formation_entries(), opp, "バランス", TACTICS.pick_random())
 	_record(0, opp_i, res.goals)
 	var others := []
 	for pair in L.schedule[int(L.round)]:

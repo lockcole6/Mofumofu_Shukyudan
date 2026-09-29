@@ -21,6 +21,10 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await _shot("試合")
+	var ms0 = main.content.get_child(0)
+	ms0._show_opp_formation(Game.opponent_index(), Game.lineup(Game.opponent_index()))
+	await _shot("試合_相手の編成")
+	_close_modals(main)
 	for tab in ["編成", "図鑑", "ガチャ", "設定"]:
 		main.show_screen(tab)
 		await _shot(tab)
@@ -48,7 +52,7 @@ func _ready() -> void:
 	await _shot("試合_結果")
 	Game.save.settings.speed = "instant"
 	while not Game.season_over():
-		Game.play_round("バランス")
+		Game.play_round()
 	ms.show_league()
 	await _shot("試合_全日程終了")
 	ms._season_end()
@@ -79,6 +83,9 @@ func _ready() -> void:
 	Game.auto_formation()
 	main.show_screen("編成")
 	await _shot("編成_おまかせ")
+	main.content.get_child(0)._auto_menu()
+	await _shot("編成_おまかせ選択")
+	_close_modals(main)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	get_tree().quit()
 

@@ -3,10 +3,11 @@ extends Control
 ## 上から FW・MF・DF・GK。同じ列の選手は人数に合わせて左右対称に並ぶ。
 
 const ROW_V := {"攻": 0.13, "中": 0.39, "守": 0.63, "GK": 0.86}
-const GAP := {1: 0.0, 2: 0.34, 3: 0.28, 4: 0.22}
+const GAP := {1: 0.0, 2: 0.34, 3: 0.3}
 const TOP_W := 0.84        # 奥の幅（手前を1とした割合）
 
 var players := {}          # id -> PitchPlayer
+var lineup: Array = []     # 並べる選手 [{id, row}]（相手チームを表示するときなど）。空なら自分の編成
 
 
 func _ready() -> void:
@@ -36,7 +37,7 @@ func layout() -> void:
 	# ピッチが低いとき（画面が短い端末）は選手を小さくして重ならないようにする
 	var sc := clampf(size.y / 360.0, 0.55, 1.0)
 	for row in ROW_V:
-		var ids := Game.row_ids(row)
+		var ids: Array = Game.row_ids(row) if lineup.is_empty() else lineup.filter(func(m): return m.row == row).map(func(m): return m.id)
 		var n := ids.size()
 		for i in n:
 			var p: Control = players.get(ids[i])

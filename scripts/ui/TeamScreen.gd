@@ -42,8 +42,7 @@ func build() -> void:
 	cb.pressed.connect(_show_combos)
 	head.add_child(cb)
 	var auto := UI.button("おまかせ", "ghost", 12, 30)
-	auto.set_meta("sfx", "skill")
-	auto.pressed.connect(_auto)
+	auto.pressed.connect(_auto_menu)
 	head.add_child(auto)
 	add_child(head)
 
@@ -194,12 +193,41 @@ func _detail(id: int) -> void:
 	CharDetail.open(self, id, {"team": true, "on_change": build, "on_swap": _picker.bind(Game.row_of_id(id), id)})
 
 
-func _auto() -> void:
+## おまかせの型をえらぶ
+func _auto_menu() -> void:
+	var v := UI.vbox(8)
+	v.add_child(UI.title("おまかせ編成", "コスト上限の中で強い7体を並べる"))
+	var desc := {"攻撃型": "FWを厚くして点を取りにいく", "バランス": "攻守のバランスをとる", "守備型": "DFを厚くして失点をおさえる"}
+	var col := {"攻撃型": UI.ROW_COLORS["攻"], "バランス": UI.ROW_COLORS["中"], "守備型": UI.ROW_COLORS["守"]}
+	var holder := {"m": null}
+	for style in Game.AUTO_STYLES:
+		var st: Dictionary = Game.AUTO_STYLES[style]
+		var p := UI.panel(UI.PANEL2, 10, col[style])
+		var h := UI.hbox(10)
+		var nv := UI.vbox(2)
+		nv.size_flags_horizontal = SIZE_EXPAND_FILL
+		nv.add_child(UI.label(style, 16, col[style], HORIZONTAL_ALIGNMENT_LEFT, true))
+		nv.add_child(UI.label(desc[style], 11, UI.SUB))
+		h.add_child(nv)
+		h.add_child(UI.label("%d-%d-%d" % [st["守"], st["中"], st["攻"]], 20, UI.INK, HORIZONTAL_ALIGNMENT_RIGHT, true))
+		p.add_child(h)
+		UI.on_tap(p, func():
+			UI.close(holder.m)
+			_auto(style))
+		v.add_child(p)
+	var cl := UI.button("とじる", "ghost", 13, 36)
+	cl.pressed.connect(func(): UI.close(holder.m))
+	v.add_child(cl)
+	holder.m = UI.modal(self, v)
+
+
+func _auto(style: String) -> void:
+	Sound.play("skill")
 	var before := Game.formation_entries().map(func(p): return [p.id, p.row])
-	Game.auto_formation()
+	Game.auto_formation(style)
 	var after := Game.formation_entries().map(func(p): return [p.id, p.row])
 	build()
-	Game.toast.emit("おまかせで並べました（%s ・ コスト%d/%d）" % [Game.formation_name(), Game.formation_cost(), Game.cost_cap()]
+	Game.toast.emit("おまかせ（%s）で並べました（%s ・ コスト%d/%d）" % [style, Game.formation_name(), Game.formation_cost(), Game.cost_cap()]
 		if before != after else "いまの編成がおまかせと同じです")
 	for id in _pitch.players:
 		var c: Control = _pitch.players[id]

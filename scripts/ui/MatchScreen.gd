@@ -6,6 +6,8 @@ const UI = preload("res://scripts/ui/UI.gd")
 const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 const MiniCourt = preload("res://scripts/ui/MiniCourt.gd")
 const Stadium = preload("res://scripts/ui/Stadium.gd")
+const Pitch = preload("res://scripts/ui/Pitch.gd")
+const PitchPlayer = preload("res://scripts/ui/PitchPlayer.gd")
 ## 試合の演出にかける秒数（設定の表示速度）
 const MATCH_SECONDS := {"normal": 12.0, "fast": 5.0, "instant": 0.0}
 const ZONE_COLORS := {"up": Color("3ddc97"), "champion": Color("ffc83d"), "down": Color("ff4d6d"), "": Color(0, 0, 0, 0)}
@@ -28,35 +30,21 @@ func show_league() -> void:
 	var L: Dictionary = Game.save.league
 	var order := Game.standings()
 	var body := UI.vbox(8)
-	var rd := "全日程終了" if Game.season_over() else "第%d節 / 5" % (int(L.round) + 1)
-	body.add_child(UI.title("%d部リーグ" % Game.division(), "SEASON %d ・ %s" % [L.season, rd]))
 
-	# いまの順位（くわしくは順位表のモーダルで）
-	var rank := order.find(0) + 1
-	var z := Game.zone(rank)
-	var zc: Color = ZONE_COLORS[z] if z != "" else UI.LINE
-	var me: Dictionary = L.table[0]
-	var rp := UI.panel(UI.PANEL, 8, zc)
-	var rsb: StyleBoxFlat = rp.get_theme_stylebox("panel")
-	rsb.set_border_width_all(1)
-	rsb.border_width_left = 3
-	var rh := UI.hbox(12)
-	rh.add_child(UI.label("%d位" % rank, 24, zc if z != "" else UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
-	var rv := UI.vbox(0)
-	rv.add_child(UI.label("勝点 %d" % me.pts, 13, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
-	rv.add_child(UI.label("%d勝 %d分 %d敗" % [me.w, me.d, me.l], 10, UI.SUB))
-	rh.add_child(rv)
-	rh.add_child(UI.spacer())
-	var tb := UI.button("順位表 ›", "ghost", 12, 32)
+	# 見出し（右上に順位表）
+	var head := UI.hbox(6)
+	var rd := "全日程終了" if Game.season_over() else "第%d節 / 5" % (int(L.round) + 1)
+	head.add_child(UI.title("%d部リーグ" % Game.division(), "SEASON %d ・ %s" % [L.season, rd]))
+	head.add_child(UI.spacer())
+	var tb := UI.button("順位表", "ghost", 12, 30)
 	tb.size_flags_vertical = SIZE_SHRINK_CENTER
 	tb.pressed.connect(func():
 		var mv := UI.vbox(8)
 		mv.add_child(UI.title("%d部リーグ 順位表" % Game.division()))
 		mv.add_child(_table(Game.standings(), Game.save.league.table))
 		UI.modal(self, mv))
-	rh.add_child(tb)
-	rp.add_child(rh)
-	body.add_child(rp)
+	head.add_child(tb)
+	body.add_child(head)
 
 	if Game.season_over():
 		body.add_child(_table(order, L.table))
@@ -71,7 +59,7 @@ func show_league() -> void:
 		add_child(UI.scroll(body))
 		return
 
-	# NEXT MATCH：両チームのエンブレムと選手、戦力の比較
+	# NEXT MATCH：両チームのエンブレム・順位と戦績・陣形、戦力の比較
 	var opp_i := Game.opponent_index()
 	var opp := Game.lineup(opp_i)
 	var mine := Game.formation_entries()
@@ -83,14 +71,22 @@ func show_league() -> void:
 	var nh := UI.hbox(6)
 	nh.add_child(UI.label("NEXT MATCH", 12, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
 	nh.add_child(UI.spacer())
-	nh.add_child(UI.label("%d位 ・ %s" % [order.find(opp_i) + 1, Game.formation_name(opp)], 11, UI.SUB))
+	nh.add_child(UI.label("%s  vs  %s" % [Game.formation_name(mine), Game.formation_name(opp)], 11, UI.SUB, HORIZONTAL_ALIGNMENT_RIGHT, true))
 	nv.add_child(nh)
 	var st = Stadium.new()
-	st.my_name = "もふもふ蹴球団"
-	st.opp_name = L.teams[opp_i].name
-	st.mine = mine
-	st.opp = opp
-	st.on_opp_tap = func(id): CharDetail.open(self, id, {"readonly": true})
+	st.names = ["もふもふ蹴球団", L.teams[opp_i].name]
+	for side in 2:
+		var ti: int = [0, opp_i][side]
+		var t: Dictionary = L.table[ti]
+		st.ranks[side] = "%d位" % (order.find(ti) + 1)
+		st.records[side] = "%d勝%d分%d敗" % [t.w, t.d, t.l]
+	st.teams = [mine, opp]
+	st.on_player_tap = func(id, _side): CharDetail.open(self, id, {"readonly": true})
+	st.on_crest_tap = func(side):
+		if side == 1:
+			_show_opp_formation(opp_i, opp)
+		else:
+			_goto_team()
 	nv.add_child(st)
 	var a := Game.team_power(mine)
 	var b := Game.team_power(opp)
@@ -118,48 +114,17 @@ func show_league() -> void:
 	np.add_child(nv)
 	body.add_child(np)
 
-	# 作戦
-	var th := UI.hbox(6)
-	var tl := UI.label("作戦", 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true)
-	tl.size_flags_vertical = SIZE_SHRINK_CENTER
-	th.add_child(tl)
-	var seg := UI.segmented(Game.TACTICS, Game.save.tactic, func(t):
-		Game.save.tactic = t
-		Game.save_game()
-		show_league(), 12)
-	seg.size_flags_horizontal = SIZE_EXPAND_FILL
-	th.add_child(seg)
-	body.add_child(th)
-
-	# 自分の編成
-	var fp := UI.panel(UI.PANEL, 8)
-	var fv := UI.vbox(6)
-	var fh := UI.hbox(6)
-	fh.add_child(UI.label("自分の編成", 12, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
-	fh.add_child(UI.spacer())
-	var link := UI.label("編成を確認 ›", 12, UI.CYAN, HORIZONTAL_ALIGNMENT_RIGHT, true)
-	UI.on_tap(link, func():
-		var m := get_tree().current_scene
-		if m and m.has_method("show_screen"):
-			m.show_screen("編成"))
-	fh.add_child(link)
-	fv.add_child(fh)
-	var cards := UI.hbox(4)
-	cards.alignment = BoxContainer.ALIGNMENT_CENTER
-	var order_rows := {"攻": 0, "中": 1, "守": 2, "GK": 3}
-	var sorted := mine.duplicate()
-	sorted.sort_custom(func(x, y): return order_rows[x.row] < order_rows[y.row])
-	for p in sorted:
-		var c = UI.card(p.id, false, [UI.label(UI.stars(Game.chars[p.id].rarity), 8, UI.GOLD, HORIZONTAL_ALIGNMENT_CENTER)], Callable(), 28)
-		c.custom_minimum_size = Vector2(42, 48)
-		c.size_flags_horizontal = SIZE_EXPAND_FILL
-		UI.on_tap(c, func(): CharDetail.open(self, p.id, {"readonly": true}))
-		cards.add_child(c)
-	if sorted.is_empty():
-		cards.add_child(UI.label("まだ誰も出場していない", 11, UI.DIM))
-	fv.add_child(cards)
-	fp.add_child(fv)
-	body.add_child(fp)
+	# 編成・相手の編成へのリンク
+	var links := UI.hbox(8)
+	var l_team := UI.button("自分の編成を変える", "ghost", 12, 34)
+	l_team.size_flags_horizontal = SIZE_EXPAND_FILL
+	l_team.pressed.connect(_goto_team)
+	links.add_child(l_team)
+	var l_opp := UI.button("相手の編成を見る", "ghost", 12, 34)
+	l_opp.size_flags_horizontal = SIZE_EXPAND_FILL
+	l_opp.pressed.connect(_show_opp_formation.bind(opp_i, opp))
+	links.add_child(l_opp)
+	body.add_child(links)
 	add_child(UI.scroll(body))
 
 	var go := UI.icon_button("キックオフ", "ball", "pink", 18, 50)
@@ -172,6 +137,39 @@ func show_league() -> void:
 		go.get_child(0).get_child(1).add_theme_font_size_override("font_size", 14)
 	go.pressed.connect(_kickoff)
 	add_child(go)
+
+
+func _goto_team() -> void:
+	var m := get_tree().current_scene
+	if m and m.has_method("show_screen"):
+		m.show_screen("編成")
+
+
+## 相手の編成を、編成画面と同じピッチで見せる
+func _show_opp_formation(opp_i: int, opp: Array) -> void:
+	var L: Dictionary = Game.save.league
+	var v := UI.vbox(8)
+	var pw := Game.team_power(opp)
+	v.add_child(UI.title(L.teams[opp_i].name, "%s ・ 攻撃%d ・ 守備%d" % [Game.formation_name(opp), pw.atk, pw.def]))
+	var pitch = Pitch.new()
+	pitch.lineup = opp
+	pitch.custom_minimum_size.y = 330
+	for m in opp:
+		var pp = PitchPlayer.new()
+		pp.setup(m.id, m.row)
+		pp.lv = int(m.get("slv", 1))
+		UI.on_tap(pp, func(): CharDetail.open(self, m.id, {"readonly": true}))
+		pitch.add_child(pp)
+		pitch.players[m.id] = pp
+	v.add_child(pitch)
+	if not pw.mods.combos.is_empty():
+		v.add_child(UI.label("連携：" + "・".join(PackedStringArray(pw.mods.combos)), 11, UI.PINK))
+	v.add_child(UI.label("選手をタップで詳細", 10, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	var holder := {"m": null}
+	var cl := UI.button("とじる", "ghost", 13, 36)
+	cl.pressed.connect(func(): UI.close(holder.m))
+	v.add_child(cl)
+	holder.m = UI.modal(self, v)
 
 
 func _table(order: Array, T: Array) -> PanelContainer:
@@ -218,7 +216,7 @@ func _table(order: Array, T: Array) -> PanelContainer:
 
 func _kickoff() -> void:
 	var L: Dictionary = Game.save.league
-	result = Game.play_round(Game.save.tactic)
+	result = Game.play_round()
 	scouted = false
 	pick_i = -1
 	_view += 1

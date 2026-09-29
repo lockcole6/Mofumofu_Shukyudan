@@ -8,6 +8,7 @@ var cid := 0
 var row := ""
 var selected := false
 var lifted := false
+var lv := 0          # 表示するスキルLv（0なら自分の所持キャラのLv）
 var _t := 0.0
 
 
@@ -57,9 +58,9 @@ func _draw() -> void:
 	var lc := Vector2(size.x - 13, 64)
 	draw_circle(lc, 11, Color(0.05, 0.08, 0.18, a))
 	draw_arc(lc, 11, 0, TAU, 24, Color(UI.CYAN, 0.8 * a), 1.5, true)
-	var lv := "Lv%d" % Game.slv(cid)
-	var lw := f.get_string_size(lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
-	draw_string(f, lc + Vector2(-lw / 2, 3), lv, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(UI.INK, a))
+	var lt := "Lv%d" % (lv if lv > 0 else Game.slv(cid))
+	var lw := f.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	draw_string(f, lc + Vector2(-lw / 2, 3), lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, Color(UI.INK, a))
 	# 得意でない列にいるときは赤い印
 	if row != "" and c.pos != row:
 		draw_string_outline(f, Vector2(cx - 18, 88), "得意:" + lab, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, 3, Color(0, 0, 0, 0.7))

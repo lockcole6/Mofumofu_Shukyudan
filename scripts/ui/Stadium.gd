@@ -1,21 +1,26 @@
 extends Control
-## 試合画面の NEXT MATCH の対戦カード。スタジアム風の背景に、両チームの名前・エンブレム・VS・選手を描く。
-## 相手の選手をタップすると on_opp_tap(選手id) を呼ぶ。
+## 試合画面の NEXT MATCH の対戦カード。
+## 上段：両チームの名前・エンブレム・順位と戦績、真ん中に VS（スタジアム風の背景）
+## 下段：芝のコートに両チームを陣形どおりに並べる（自分は左から GK→DF→MF→FW、相手は右から）
+## 選手をタップ → on_player_tap(id, side)、エンブレムをタップ → on_crest_tap(side)（side 0=自分 1=相手）
 
 const UI = preload("res://scripts/ui/UI.gd")
 const Sprites = preload("res://scripts/ui/Sprites.gd")
+const COL_X := {"GK": 0.05, "守": 0.17, "中": 0.3, "攻": 0.43}   # 自分側。相手は左右反転
+const TOP_H := 104.0
 
-var my_name := ""
-var opp_name := ""
-var mine: Array = []       # 出場メンバー [{id, row}]
-var opp: Array = []
-var on_opp_tap := Callable()
-var _opp_rects := []       # [Rect2, id]
+var names := ["", ""]
+var ranks := ["", ""]      # 例 "3位"
+var records := ["", ""]    # 例 "2勝1分0敗"
+var teams := [[], []]      # [{id, row}]
+var on_player_tap := Callable()
+var on_crest_tap := Callable()
+var _hits := []            # [Rect2, 種類, 値]
 var _crowd := []
 
 
 func _ready() -> void:
-	custom_minimum_size.y = 172
+	custom_minimum_size.y = 272
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var r := RandomNumberGenerator.new()
 	r.seed = 5
@@ -26,79 +31,98 @@ func _ready() -> void:
 
 func _tap_at() -> void:
 	var p := get_local_mouse_position()
-	for it in _opp_rects:
-		if it[0].grow(3).has_point(p) and on_opp_tap.is_valid():
-			on_opp_tap.call(it[1])
+	for it in _hits:
+		if it[0].has_point(p):
+			if it[1] == "crest" and on_crest_tap.is_valid():
+				on_crest_tap.call(it[2])
+			elif it[1] == "player" and on_player_tap.is_valid():
+				on_player_tap.call(it[2][0], it[2][1])
 			return
 
 
 func _draw() -> void:
+	_hits.clear()
 	var w := size.x
 	var h := size.y
-	# 夜空とスタンド
+	var f: Font = UI.heavy_font if UI.heavy_font else get_theme_default_font()
+	# 上段：夜空・照明・観客席
 	var top := Color("0b1330")
 	var mid := Color("15305a")
-	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h * 0.62), Vector2(0, h * 0.62)]),
+	draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, TOP_H), Vector2(0, TOP_H)]),
 		PackedColorArray([top, top, mid, mid]))
-	draw_rect(Rect2(0, h * 0.36, w, h * 0.26), Color(0.02, 0.04, 0.1, 0.5))
 	for c in _crowd:
-		draw_circle(Vector2(c[0] * w, h * (0.38 + c[1] * 0.22)), 1.2, Color(1, 1, 1, 0.08 + c[2] * 0.18))
-	# 照明
-	for x in [0.08, 0.3, 0.7, 0.92]:
-		var p := Vector2(x * w, h * 0.1)
-		for k in 4:
-			draw_circle(p, 18 - k * 4, Color(1, 1, 0.9, 0.05 + k * 0.05))
-		draw_circle(p, 3, Color(1, 1, 0.95, 0.95))
-	# 芝
-	var f0 := h * 0.62
-	for b in 4:
-		var y0 := f0 + (h - f0) * b / 4.0
-		var y1 := f0 + (h - f0) * (b + 1) / 4.0
-		draw_rect(Rect2(0, y0, w, y1 - y0), Color("2f8d3b") if b % 2 == 0 else Color("2a7f35"))
-	draw_line(Vector2(w / 2, f0), Vector2(w / 2, h), Color(1, 1, 1, 0.4), 1.5)
-	draw_arc(Vector2(w / 2, h), (h - f0) * 0.8, PI, TAU, 24, Color(1, 1, 1, 0.4), 1.5, true)
-
-	var f: Font = UI.heavy_font if UI.heavy_font else get_theme_default_font()
-	# チーム名
+		draw_circle(Vector2(c[0] * w, TOP_H * (0.55 + c[1] * 0.42)), 1.1, Color(1, 1, 1, 0.06 + c[2] * 0.14))
+	var lp := Vector2(w / 2, 8)
+	for k in 4:
+		draw_circle(lp, 16 - k * 4, Color(1, 1, 0.9, 0.04 + k * 0.04))
+	# 両チームの名前・エンブレム・順位と戦績
 	for side in 2:
-		var nm: String = [my_name, opp_name][side]
-		var cx := w * (0.25 if side == 0 else 0.75)
-		var tw := f.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		draw_string_outline(f, Vector2(cx - tw / 2, 18), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.6))
-		draw_string(f, Vector2(cx - tw / 2, 18), nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, UI.INK)
-	# エンブレム
-	_crest(Vector2(w * 0.25, 58), 30, true)
-	_crest(Vector2(w * 0.75, 58), 30, false)
-	# VS
-	var vs := "VS"
-	var vw := f.get_string_size(vs, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
-	draw_string_outline(f, Vector2(w / 2 - vw / 2, 70), vs, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 6, Color(0, 0, 0, 0.6))
-	draw_string(f, Vector2(w / 2 - vw / 2, 70), vs, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, UI.INK)
-	# 選手（4人と3人の2段）
-	_opp_rects.clear()
+		var cx := w * (0.2 if side == 0 else 0.8)
+		_text(f, names[side], Vector2(cx, 15), 12, UI.INK)
+		var cc := Vector2(cx, 50)
+		_crest(cc, 24, side == 0)
+		_hits.append([Rect2(cc - Vector2(30, 30), Vector2(60, 60)), "crest", side])
+		_rank_line(f, Vector2(cx, 94), ranks[side], records[side])
+	_text(f, "VS", Vector2(w / 2, 62), 30, UI.INK)
+	_text(f, "エンブレムで編成", Vector2(w / 2, 92), 9, Color(UI.SUB, 0.8))
+
+	# 下段：芝のコート
+	var fr := Rect2(0, TOP_H, w, h - TOP_H)
+	for b in 8:
+		draw_rect(Rect2(fr.position.x + fr.size.x * b / 8.0, fr.position.y, fr.size.x / 8.0, fr.size.y),
+			Color("2f8d3b") if b % 2 == 0 else Color("2a7f35"))
+	var line := Color(1, 1, 1, 0.4)
+	draw_rect(fr.grow(-3), line, false, 1.5)
+	draw_line(Vector2(w / 2, fr.position.y + 3), Vector2(w / 2, fr.end.y - 3), line, 1.5)
+	draw_arc(fr.get_center(), fr.size.y * 0.18, 0, TAU, 32, line, 1.5, true)
 	for side in 2:
-		var team: Array = _ordered([mine, opp][side])
-		var cx := w * (0.25 if side == 0 else 0.75)
-		for i in team.size():
-			var line := 0 if i < 4 else 1
-			var n := mini(4, team.size()) if line == 0 else team.size() - 4
-			var k := i if line == 0 else i - 4
-			var x := cx + (k - (n - 1) / 2.0) * 34
-			var y := h * 0.66 + line * 26
-			var rect := Rect2(x - 15, y - 4, 30, 30)
-			_ellipse(Vector2(x, y + 24), Vector2(12, 3.5), Color(0, 0, 0, 0.35))
-			draw_texture_rect(Sprites.get_tex(Game.chars[team[i].id]), rect, false)
-			if side == 1:
-				_opp_rects.append([rect, team[i].id])
-				if not Game.owned(team[i].id):
-					draw_circle(rect.position + Vector2(27, 3), 3.5, UI.PINK)
+		var bx := fr.position.x + 3 if side == 0 else fr.end.x - 3 - w * 0.1
+		draw_rect(Rect2(bx, fr.position.y + fr.size.y * 0.25, w * 0.1, fr.size.y * 0.5), line, false, 1.5)
+	# 選手
+	for side in 2:
+		var team: Array = teams[side]
+		for row in COL_X:
+			var list := team.filter(func(m): return m.row == row)
+			var n := list.size()
+			for i in n:
+				var x: float = COL_X[row] if side == 0 else 1.0 - COL_X[row]
+				var y := fr.position.y + fr.size.y * (i + 1.0) / (n + 1.0) - 4
+				_player(f, Vector2(x * w, y), list[i], side)
 
 
-func _ordered(team: Array) -> Array:
-	var order := {"攻": 0, "中": 1, "守": 2, "GK": 3}
-	var t := team.duplicate()
-	t.sort_custom(func(a, b): return order[a.row] < order[b.row])
-	return t
+func _player(f: Font, p: Vector2, m: Dictionary, side: int) -> void:
+	var c: Dictionary = Game.chars[m.id]
+	var pc: Color = UI.ROW_COLORS[m.row]
+	var tc: Color = UI.CYAN if side == 0 else UI.PINK
+	# 台座：ポジションの色、縁はチームの色
+	_ellipse(p + Vector2(0, 12), Vector2(15, 5), Color(pc, 0.55))
+	_ellipse_line(p + Vector2(0, 12), Vector2(15, 5), tc, 1.2)
+	var r := Rect2(p - Vector2(14, 16), Vector2(28, 28))
+	draw_texture_rect(Sprites.get_tex(c), r, false)
+	# ポジション名
+	var lab: String = UI.POS_LABEL[m.row]
+	var lw := f.get_string_size(lab, HORIZONTAL_ALIGNMENT_LEFT, -1, 8).x
+	draw_rect(Rect2(p.x - lw / 2 - 3, p.y + 17, lw + 6, 10), Color(pc, 0.9))
+	draw_string(f, Vector2(p.x - lw / 2, p.y + 25), lab, HORIZONTAL_ALIGNMENT_LEFT, -1, 8, UI.BG)
+	if side == 1 and not Game.owned(m.id):
+		draw_circle(r.position + Vector2(26, 3), 3.5, UI.PINK)
+	_hits.append([r.grow(4), "player", [m.id, side]])
+
+
+func _text(f: Font, t: String, c: Vector2, fs: int, col: Color) -> void:
+	var tw := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	draw_string_outline(f, Vector2(c.x - tw / 2, c.y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 4, Color(0, 0, 0, 0.6))
+	draw_string(f, Vector2(c.x - tw / 2, c.y), t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
+
+
+## 「3位  2勝1分0敗」を中央ぞろえで
+func _rank_line(f: Font, c: Vector2, rank: String, rec: String) -> void:
+	var w1 := f.get_string_size(rank, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+	var w2 := f.get_string_size(rec, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+	var x := c.x - (w1 + 5 + w2) / 2
+	draw_string_outline(f, Vector2(x, c.y), rank, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0, 0, 0, 0.6))
+	draw_string(f, Vector2(x, c.y), rank, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, UI.GOLD if rank == "1位" else UI.INK)
+	draw_string(f, Vector2(x + w1 + 5, c.y), rec, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, UI.SUB)
 
 
 ## エンブレム。自分は青い盾にボールと月桂樹、相手は暗い盾に一番レアな選手
@@ -107,7 +131,6 @@ func _crest(c: Vector2, r: float, is_mine: bool) -> void:
 	for p in [[-0.85, -0.9], [0.0, -1.05], [0.85, -0.9], [0.85, -0.1], [0.6, 0.5], [0.0, 1.0], [-0.6, 0.5], [-0.85, -0.1]]:
 		shape.append(c + Vector2(p[0], p[1]) * r)
 	if is_mine:
-		# 月桂樹（盾の左右を下から上へ囲む葉）
 		for side in [-1, 1]:
 			for k in 7:
 				var a := lerpf(PI * 0.55, PI * 1.3, k / 6.0)
@@ -116,14 +139,13 @@ func _crest(c: Vector2, r: float, is_mine: bool) -> void:
 				if side == 1:
 					p.x = c.x - (p.x - c.x)
 					rot = PI - rot
-				_leaf(p, Vector2(6, 2.6), rot, UI.GOLD)
+				_leaf(p, Vector2(5.5, 2.4), rot, UI.GOLD)
 		draw_colored_polygon(shape, Color("1f5fd0"))
 		var inner := PackedVector2Array()
 		for p in shape:
 			inner.append(c + (p - c) * 0.8)
 		draw_colored_polygon(inner, Color("3d8bff"))
 		draw_polyline(shape + PackedVector2Array([shape[0]]), Color(UI.INK, 0.9), 2.0, true)
-		# ボール
 		var bc := c + Vector2(0, 2)
 		draw_circle(bc, r * 0.45, Color.WHITE)
 		var pent := PackedVector2Array()
@@ -140,9 +162,9 @@ func _crest(c: Vector2, r: float, is_mine: bool) -> void:
 		for p in shape:
 			inner.append(c + (p - c) * 0.84)
 		draw_colored_polygon(inner, Color("27304d"))
-		draw_polyline(shape + PackedVector2Array([shape[0]]), Color(UI.SUB, 0.9), 2.0, true)
+		draw_polyline(shape + PackedVector2Array([shape[0]]), Color(UI.PINK, 0.8), 2.0, true)
 		var best: Dictionary = {}
-		for m in opp:
+		for m in teams[1]:
 			if best.is_empty() or Game.chars[m.id].rarity > Game.chars[best.id].rarity:
 				best = m
 		if not best.is_empty():
@@ -163,3 +185,11 @@ func _ellipse(c: Vector2, r: Vector2, col: Color) -> void:
 		var a := TAU * k / 24.0
 		pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
 	draw_colored_polygon(pts, col)
+
+
+func _ellipse_line(c: Vector2, r: Vector2, col: Color, w: float) -> void:
+	var pts := PackedVector2Array()
+	for k in 25:
+		var a := TAU * k / 24.0
+		pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
+	draw_polyline(pts, col, w, true)

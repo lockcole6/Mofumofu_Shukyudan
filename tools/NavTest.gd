@@ -15,6 +15,15 @@ func _ready() -> void:
 	f.close()
 	Game.load_game()
 	print("migrated: stones=", Game.save.stones, " formation=", Game.save.formation, " ai=", Game.save.league.teams[1].members)
+	# 1列4人の旧セーブ → 3人に収まるよう自動で移す
+	var v3 := {"version": 3, "roster": {"1": {"slv": 1, "copies": 0}, "2": {"slv": 1, "copies": 0}, "5": {"slv": 1, "copies": 0},
+		"7": {"slv": 1, "copies": 0}, "4": {"slv": 1, "copies": 0}},
+		"formation": [{"id": 1, "row": "攻"}, {"id": 2, "row": "攻"}, {"id": 5, "row": "攻"}, {"id": 7, "row": "攻"}, {"id": 4, "row": "GK"}]}
+	var f3 := FileAccess.open(Game.SAVE_PATH, FileAccess.WRITE)
+	f3.store_string(JSON.stringify(v3))
+	f3.close()
+	Game.load_game()
+	print("fit 4->3: FW=", Game.row_ids("攻"), " MF=", Game.row_ids("中"), " DF=", Game.row_ids("守"))
 	# ルール：GKは1人（入れると交代）、列は4人まで
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()

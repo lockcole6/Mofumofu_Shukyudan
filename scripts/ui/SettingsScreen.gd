@@ -114,7 +114,7 @@ func _debug() -> Control:
 			Game.save_game()],
 		["今シーズンの残りを自動で消化", func():
 			while not Game.season_over():
-				Game.play_round(Game.save.tactic)],
+				Game.play_round()],
 	]
 	for a in acts:
 		var b := UI.button(a[0], "ghost", 12, 34)
