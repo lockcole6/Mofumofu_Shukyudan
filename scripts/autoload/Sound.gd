@@ -15,7 +15,7 @@ const SFX_DB := {
 	"reveal1": -11.0, "reveal2": -6.0, "reveal3": -3.0, "reveal4": -2.0, "new": -8.0,
 	"scout_ok": -7.0, "scout_ng": -9.0,
 }
-const BGM_DB := -12.0
+const BGM_DB := -6.0
 
 var _bgm: Array = []     # クロスフェード用に2つ
 var _bgm_cur := 0
@@ -28,12 +28,8 @@ var _last := {}          # 同じ音が同時にいくつも鳴らないよう�
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	for bus in ["Music", "SFX"]:
-		if AudioServer.get_bus_index(bus) < 0:
-			AudioServer.add_bus()
-			var i := AudioServer.bus_count - 1
-			AudioServer.set_bus_name(i, bus)
-			AudioServer.set_bus_send(i, "Master")
+	# バス（Music / SFX）は default_bus_layout.tres で定義している。
+	# Web版は起動後に add_bus したバスが音の出力に反映されず無音になるため、起動時から用意しておく
 	for i in 2:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Music"
