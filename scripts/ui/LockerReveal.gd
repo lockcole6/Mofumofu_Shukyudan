@@ -8,6 +8,7 @@ var results: Array = []
 var idx := 0
 var phase := ""   # closed / opening / revealed / summary
 var t := 0.0
+var _tw: Tween            # 扉が開く演出（SKIP などで途中終了させる）
 
 var glow: ColorRect
 var door: Door
@@ -56,6 +57,7 @@ func _ready() -> void:
 
 
 func _show_locker() -> void:
+	_kill_tween()
 	UI.clear(stage)
 	var res: Dictionary = results[idx]
 	var c: Dictionary = Game.chars[res.id]
@@ -124,12 +126,22 @@ func _process(delta: float) -> void:
 func _open() -> void:
 	phase = "opening"
 	door.position.x = 0
-	var tw := create_tween()
-	tw.tween_property(door, "scale:x", 0.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(glow, "color:a", 0.35, 0.25)
-	tw.tween_property(char_icon, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(info, "modulate:a", 1.0, 0.3)
-	tw.tween_callback(func(): phase = "revealed")
+	_kill_tween()
+	_tw = create_tween()
+	_tw.tween_property(door, "scale:x", 0.0, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_tw.parallel().tween_property(glow, "color:a", 0.35, 0.25)
+	_tw.tween_property(char_icon, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_tw.parallel().tween_property(info, "modulate:a", 1.0, 0.3)
+	# SKIP で結果一覧に移ったあとに「出た」に戻さないよう、開いている途中のときだけ切り替える
+	_tw.tween_callback(func():
+		if phase == "opening":
+			phase = "revealed")
+
+
+func _kill_tween() -> void:
+	if _tw and _tw.is_valid():
+		_tw.kill()
+	_tw = null
 
 
 var _press_n := 0
@@ -182,6 +194,8 @@ func _show_summary() -> void:
 	if phase == "summary":
 		return
 	phase = "summary"
+	_kill_tween()
+	_pressed_here = false
 	UI.clear(stage)
 	for c in get_children():
 		if c is Button:
