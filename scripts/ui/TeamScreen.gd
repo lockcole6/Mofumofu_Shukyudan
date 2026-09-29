@@ -1,7 +1,7 @@
 extends VBoxContainer
 ## チーム編成：芝のピッチに7体を並べる（上から FW・MF・DF・GK、人数に合わせて左右対称）。
 ## 下に選んだ選手のスキルと操作ボタン、その下に控え。
-## 操作：タップで選択（スキルを確認）、長押しで詳細、押したまま動かすと持ち上げて運べる
+## 操作：タップで選択（スキルを確認）、長押しか押したまま動かすと持ち上げて運べる。詳細は「詳細」ボタンから
 ##       （選手の上で入れ替え・別の列へ移動・控えに落とすと外れる）。
 
 const UI = preload("res://scripts/ui/UI.gd")
@@ -9,6 +9,8 @@ const CharDetail = preload("res://scripts/ui/CharDetail.gd")
 const Icon = preload("res://scripts/ui/Icon.gd")
 const Pitch = preload("res://scripts/ui/Pitch.gd")
 const PitchPlayer = preload("res://scripts/ui/PitchPlayer.gd")
+
+const LIFT_TIME := 0.25   # この時間押し続けるとカードが持ち上がる（詳細は「詳細」ボタンから）
 
 var sel := 0            # 選んでいる選手
 var _pitch: Control
@@ -73,7 +75,7 @@ func build() -> void:
 		var pp = PitchPlayer.new()
 		pp.setup(p.id, p.row)
 		pp.selected = p.id == sel
-		UI.on_tap(pp, _select.bind(p.id), _detail.bind(p.id), UI.LONG_PRESS, false, _start_drag.bind(p.id))
+		UI.on_tap(pp, _select.bind(p.id), _start_drag.bind(p.id), LIFT_TIME, false, _start_drag.bind(p.id))
 		pitch.add_child(pp)
 		pitch.players[p.id] = pp
 	add_child(pitch)
@@ -84,7 +86,7 @@ func build() -> void:
 		add_child(_selected_panel(sel))
 
 	# 案内
-	var hint := "タップでスキル確認・長押しで詳細・ドラッグで移動"
+	var hint := "タップでスキル確認・長押しかドラッグで移動"
 	var hc := UI.DIM
 	if cost > cap:
 		hint = "コスト上限をこえています。控えへドラッグで外せます"
@@ -172,7 +174,7 @@ func _bench_panel() -> Control:
 		var card = UI.card(id, false, [UI.label(UI.stars(Game.chars[id].rarity), 9, UI.GOLD, HORIZONTAL_ALIGNMENT_CENTER)], Callable(), 32)
 		card.custom_minimum_size = Vector2(52, 50)
 		card.selected = id == sel
-		UI.on_tap(card, _select.bind(id), _detail.bind(id), UI.LONG_PRESS, false, _start_drag.bind(id))
+		UI.on_tap(card, _select.bind(id), _start_drag.bind(id), LIFT_TIME, false, _start_drag.bind(id))
 		row.add_child(card)
 	if ids.is_empty():
 		row.add_child(UI.label("全員出場中", 11, UI.DIM))

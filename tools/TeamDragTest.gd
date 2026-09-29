@@ -20,11 +20,24 @@ func _ready() -> void:
 	await _frames()
 	print("tap select: sel=", ts.sel, " (イルカ=9)  layers=", _layers())
 
-	# 2) 長押しで詳細
-	await _long_press(_center(ts._pitch.players[9]))
-	print("long press: layers=", _layers(), " dragging=", not ts._drag.is_empty())
-	Nav.back()
+	# 2) 長押し → 詳細は開かず持ち上がる。そのまま離すと元の場所（変化なし）
+	var p9 := _center(ts._pitch.players[9])
+	_mouse(p9, true)
+	await get_tree().create_timer(0.6).timeout
+	print("long press: layers=", _layers(), " lifted=", not ts._drag.is_empty())
+	_mouse(p9, false)
 	await _frames()
+	print("  released in place: MF=", Game.row_ids("中"), " sel=", ts.sel)
+	# 2b) 長押しで持ち上げてから動かす → ネコの位置と入れ替え
+	var p1 := _center(ts._pitch.players[1])
+	_mouse(p9, true)
+	await get_tree().create_timer(0.4).timeout
+	for i in 12:
+		_move(p9.lerp(p1, (i + 1) / 12.0))
+		await get_tree().process_frame
+	_mouse(p1, false)
+	await _frames()
+	print("  hold then move: MF=", Game.row_ids("中"), " layers=", _layers())
 
 	# 3) タヌキ(FW)をネコ(MF)の上へ → 入れ替え
 	await _drag(_center(ts._pitch.players[2]), _center(ts._pitch.players[1]))
