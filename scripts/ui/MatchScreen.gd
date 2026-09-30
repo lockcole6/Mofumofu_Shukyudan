@@ -520,6 +520,14 @@ func _season_end() -> void:
 	var table: Array = Game.save.league.table.duplicate(true)
 	var teams: Array = Game.save.league.teams
 	var s := Game.end_season()
+	if s.zone == "champion":
+		# 1部優勝：はじめてならエンディングまで、2回目以降は祝福の演出だけ
+		var first: bool = not Game.save.cleared
+		Game.save.cleared = true
+		Game.save_game()
+		var m := _main()
+		if m:
+			m.show_ending.call_deferred(first)
 	Sound.play({"up": "promote", "champion": "champion", "down": "lose", "": "draw"}[s.zone])
 	_view += 1
 	UI.clear(self)

@@ -27,6 +27,8 @@ func _ready() -> void:
 	# ルール：GKは1人（入れると交代）、列は4人まで
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	Game.add_character(10)
 	Game.add_character(22)
 	print("GK before: ", Game.row_ids("GK"), " place GK: '", Game.place(10, "GK"), "' after: ", Game.row_ids("GK"), " team=", Game.save.formation.size())
@@ -37,6 +39,8 @@ func _ready() -> void:
 	print("攻 full try: '", Game.place(9, "攻"), "'")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	for id in Game.chars:
 		Game.add_character(id)
 	var main: Control = load("res://scenes/Main.tscn").instantiate()

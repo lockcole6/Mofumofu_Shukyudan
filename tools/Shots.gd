@@ -10,12 +10,16 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	_stats()
 	if "stats" in OS.get_cmdline_user_args():
 		get_tree().quit()
 		return
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	# 名前の長さの確認用に、1つは5文字いっぱいにする
 	Game.rename_preset(1, "ゴールマシン")
 	Game.rename_preset(2, "鉄壁の守備陣")
@@ -122,6 +126,7 @@ func _stats() -> void:
 			if mode == "starter":
 				DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 				Game.load_game()
+				Game.place_starters()
 			Game.new_season(d)
 			if mode == "best":
 				for id in Game.chars:

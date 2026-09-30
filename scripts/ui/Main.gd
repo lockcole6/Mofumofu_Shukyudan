@@ -2,6 +2,8 @@ extends Control
 
 const UI = preload("res://scripts/ui/UI.gd")
 const Icon = preload("res://scripts/ui/Icon.gd")
+const Tutorial = preload("res://scripts/ui/Tutorial.gd")
+const Ending = preload("res://scripts/ui/Ending.gd")
 const TAB_ICONS := {"試合": "ball", "編成": "team", "図鑑": "book", "ガチャ": "gacha", "設定": "gear"}
 const TABS := [
 	["試合", preload("res://scripts/ui/MatchScreen.gd")],
@@ -124,6 +126,23 @@ func _ready() -> void:
 	Sound.bgm("menu")
 	_refresh_top()
 	show_screen("試合", false)
+	if not Game.save.tutorial_done:
+		start_tutorial.call_deferred()
+
+
+## チュートリアルを始める（初回と、設定の「もう一度見る」）
+func start_tutorial() -> void:
+	show_screen("試合", false)
+	var t = Tutorial.new()
+	t.main = self
+	get_tree().root.add_child(t)
+
+
+## 優勝の演出。full=true ならエンディングまで
+func show_ending(full: bool) -> void:
+	var e = Ending.new()
+	e.full = full
+	get_tree().root.add_child(e)
 
 
 ## 試合中などに下のタブを押せないようにする

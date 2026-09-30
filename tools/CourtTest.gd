@@ -8,6 +8,8 @@ const MiniCourt = preload("res://scripts/ui/MiniCourt.gd")
 func _ready() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	var bad := 0
 	var total := 0
 	var held_ok := 0

@@ -107,6 +107,19 @@ static func _draw(look: Dictionary, silhouette: bool) -> Image:
 			for k in 3:
 				var yy := cy - 3 + k * 4
 				_tri(img, Vector2(16 + side * (rx + 3.5), yy + 1), Vector2(16 + side * (rx - 3), yy - 2.5), Vector2(16 + side * (rx - 3), yy + 3), belly)
+	if "quills" in ex:
+		# 背中のトゲ（頭の上から後ろにかけて）
+		for k in 11:
+			var a := lerpf(PI * 1.05, PI * 1.95, k / 10.0)
+			var base := Vector2(cx, cy) + Vector2(cos(a) * rx, sin(a) * ry)
+			var tip := Vector2(cx, cy) + Vector2(cos(a) * (rx + 5), sin(a) * (ry + 5))
+			var side := Vector2(-sin(a), cos(a)) * 2.2
+			_tri(img, base - side, base + side, tip, tone(acc, -0.5 if k % 2 == 0 else 0.5))
+	if "wool" in ex:
+		# もこもこの毛（体のまわりにふくらみ）
+		for k in 12:
+			var a := TAU * k / 12.0
+			_ell(img, cx + cos(a) * (rx - 0.5), cy + sin(a) * (ry - 0.5), 3.6, 3.6, tone(body, 0.6))
 	if ears == "big":
 		for side in [-1, 1]:
 			_ell(img, 16 + side * 11, cy - 1, 5.5, 7.5, body)
@@ -254,6 +267,22 @@ static func _draw(look: Dictionary, silhouette: bool) -> Image:
 				_paint(img, x, y, acc)
 		_px(img, 8, int(cy + 3), Color.WHITE)
 
+	if "ramhorns" in ex:
+		# くるっと巻いた角（左右）
+		for side in [-1, 1]:
+			var hc := Vector2(16 + side * 8.5, t + 4)
+			for k in 20:
+				var a := lerpf(-PI * 0.9, PI * 0.9, k / 19.0)
+				var r := lerpf(4.2, 1.6, k / 19.0)
+				var p := hc + Vector2(cos(a) * r * side, sin(a) * r)
+				_ell(img, p.x, p.y, 1.3, 1.3, acc)
+	if "grass" in ex:
+		for p in [[10, 0], [13, -2], [16, -3], [19, -2], [22, 0]]:
+			_tri(img, Vector2(p[0] - 1.6, t + 2), Vector2(p[0] + 1.6, t + 2), Vector2(p[0] + 0.5, t + p[1] - 3), tone(acc, 0.3 if p[0] % 2 == 0 else -0.3))
+	if "card" in ex:
+		# イエローカードを持っている（右下）
+		_rect(img, 22, int(cy) - 1, 6, 8, acc)
+		_rect(img, 23, int(cy), 4, 2, tone(acc, 1.5))
 	# ---------------- 顔
 	if "mask" in ex:
 		for side in [-1, 1]:
@@ -310,6 +339,10 @@ static func _draw(look: Dictionary, silhouette: bool) -> Image:
 			var x0: int = 16 + side * (eo + 2) - (1 if side < 0 else 0)
 			_rect(img, x0, ey + 2, 2, 1, CHEEK)
 
+	if "tusks" in ex:
+		for x in [13, 18]:
+			_rect(img, x, ey + 3, 2, 6, acc)
+			_px(img, x, ey + 8, tone(acc, -1))
 	_outline(img)
 	if silhouette:
 		for y in S:

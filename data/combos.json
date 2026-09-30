@@ -15,5 +15,11 @@
   {"name": "キックオフ", "ids": [19, 39], "type": "chance", "value": 50},
   {"name": "ネコ科の誇り", "ids": [1, 7, 40], "type": "team_atk", "value": 10},
   {"name": "空の王者", "ids": [35, 27, 25], "type": "team_def", "value": 8},
-  {"name": "白銀の牙", "ids": [38, 29], "type": "team_atk", "value": 10}
+  {"name": "白銀の牙", "ids": [38, 29], "type": "team_atk", "value": 10},
+  {"name": "北極の守り", "ids": [44, 43, 3], "type": "team_def", "value": 10},
+  {"name": "もこもこ守備隊", "ids": [41, 48, 47], "type": "team_def", "value": 8},
+  {"name": "森のパス回し", "ids": [56, 23, 59], "type": "chance", "value": 30},
+  {"name": "天空の翼", "ids": [60, 12, 57], "type": "team_atk", "value": 10},
+  {"name": "伝説の番人", "ids": [49, 55, 50], "type": "team_both", "value": 8},
+  {"name": "審判団", "ids": [51, 39], "type": "opp_atk_down", "value": 10}
 ]

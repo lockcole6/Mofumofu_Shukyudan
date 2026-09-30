@@ -5,6 +5,8 @@ extends Node
 func _ready() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	Game.save.stones = 1200 * 100
 	var cnt := {1: 0, 2: 0, 3: 0, 4: 0}
 	var before: int = Game.save.stones

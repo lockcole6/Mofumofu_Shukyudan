@@ -52,6 +52,20 @@ func build() -> void:
 	rp.add_child(rv)
 	v.add_child(rp)
 
+	var tut := UI.button("チュートリアルをもう一度見る", "ghost", 13, 38)
+	tut.pressed.connect(func():
+		var m := _main()
+		if m:
+			m.start_tutorial())
+	v.add_child(tut)
+	if Game.save.cleared:
+		var ed := UI.button("エンディングをもう一度見る", "gold", 13, 38)
+		ed.pressed.connect(func():
+			var m := _main()
+			if m:
+				m.show_ending(true))
+		v.add_child(ed)
+
 	var reset := UI.button("セーブデータを消して最初から", "danger", 13, 38)
 	reset.pressed.connect(func():
 		if reset.text.begins_with("本当に"):
@@ -148,6 +162,13 @@ func _volume_row(title: String, key: String, def: float) -> HBoxContainer:
 	h.add_child(sl)
 	h.add_child(num)
 	return h
+
+
+func _main() -> Node:
+	var m := get_parent()
+	while m and not m.has_method("show_screen"):
+		m = m.get_parent()
+	return m
 
 
 func _spin(value: float, lo: float, hi: float, step: float, on_change: Callable) -> SpinBox:

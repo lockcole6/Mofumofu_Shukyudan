@@ -5,6 +5,8 @@ extends Node
 func _ready() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	for id in Game.chars:
 		Game.add_character(id)
 	Game.new_season(1)   # コスト上限20

@@ -7,6 +7,8 @@ var main: Control
 func _ready() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Game.SAVE_PATH))
 	Game.load_game()
+	Game.save.tutorial_done = true
+	Game.place_starters()
 	main = load("res://scenes/Main.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(main)
 	await _frames()

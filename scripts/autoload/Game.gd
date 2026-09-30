@@ -42,7 +42,7 @@ const STARTERS := [[4, "GK"], [3, "守"], [6, "守"], [1, "中"], [9, "中"], [2
 
 ## ディビジョン（5部が一番下、1部が一番上）
 const COST_CAP := {5: 12, 4: 14, 3: 16, 2: 18, 1: 20}
-const DIV_BOOST := {5: 0.78, 4: 0.86, 3: 0.94, 2: 1.0, 1: 1.06}
+const DIV_BOOST := {5: 0.78, 4: 0.86, 3: 0.92, 2: 0.95, 1: 0.97}
 const SEASON_REWARD := [150, 100, 70, 50, 40, 30]
 const PROMOTE := 2
 const RELEGATE := 2
@@ -250,15 +250,17 @@ func _default_save() -> Dictionary:
 		"presets": [],     # 編成プリセット（5つ）。いま使っている番号は preset
 		"preset": 0,
 		"preset_names": [],
+		"tutorial_done": false,
+		"cleared": false,       # 1部優勝したことがあるか（エンディングを見た）
 		"pages": {},
 		"record": {"wins": 0, "draws": 0, "losses": 0, "best": 5, "titles": 0},
 		"settings": {"speed": "normal", "bgm": 0.7, "sfx": 0.8},
 		"debug": {"rates": [60.0, 30.0, 8.0, 2.0]},
 		"league": {},
 	}
+	# はじめの選手は控えにいるだけ（配置はチュートリアルで自分でする）
 	for st in STARTERS:
 		s.roster[str(st[0])] = {"slv": 1, "copies": 0}
-		s.formation.append({"id": st[0], "row": st[1]})
 	s.presets = [s.formation.duplicate(true)]
 	for i in PRESET_COUNT - 1:
 		s.presets.append([])
@@ -285,6 +287,8 @@ func load_game() -> void:
 	if data is Dictionary and int(data.get("version", 0)) == SAVE_VERSION:
 		for k in data:
 			save[k] = data[k]
+		if not data.has("tutorial_done"):
+			save.tutorial_done = true   # チュートリアルができる前から遊んでいたセーブ
 		for f in save.formation:
 			f.id = int(f.id)
 		_fit_row_max()
@@ -557,6 +561,14 @@ func auto_formation(style := "バランス") -> void:
 			budget -= chars[best].rarity
 			out.append({"id": best, "row": row})
 	save.formation = out
+	save_game()
+
+
+## はじめの7体を基本の位置に並べる（テストとデバッグ用）
+func place_starters() -> void:
+	save.formation = []
+	for st in STARTERS:
+		save.formation.append({"id": st[0], "row": st[1]})
 	save_game()
 
 
