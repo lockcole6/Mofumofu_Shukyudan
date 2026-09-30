@@ -13,7 +13,7 @@ func _ready() -> void:
 	Game.save.stones = 1000
 	main.show_screen("ガチャ")
 	await _frames()
-	main.content.get_child(0)._pull(10)
+	main.content.get_child(0)._pull(10, false)
 	await _frames()
 	var ov: Node = _top()
 	# 演出中：出てきたキャラを長押し → 詳細、タップ → 次へ

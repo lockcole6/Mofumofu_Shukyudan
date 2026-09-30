@@ -83,10 +83,6 @@ func _debug() -> Control:
 		g.add_child(_spin(float(d.rates[i]), 0, 1000, 0.5, func(x):
 			d.rates[i] = x
 			Game.save_game()))
-	g.add_child(UI.label("天井（回）", 12))
-	g.add_child(_spin(float(d.pity), 1, 500, 1, func(x):
-		d.pity = int(x)
-		Game.save_game()))
 	g.add_child(UI.label("ガチャ石", 12))
 	g.add_child(_spin(float(Game.save.stones), 0, 999999, 1, func(x):
 		Game.save.stones = int(x)

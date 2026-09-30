@@ -1,4 +1,5 @@
 extends VBoxContainer
+## ガチャ：通常ガチャ（1回・10回）と ★3以上確定ガチャ。被りの余りの売却。
 
 const UI = preload("res://scripts/ui/UI.gd")
 const LockerReveal = preload("res://scripts/ui/LockerReveal.gd")
@@ -12,11 +13,12 @@ func _ready() -> void:
 
 func build() -> void:
 	UI.clear(self)
-	add_child(UI.title("ロッカーガチャ", "1回 ◆%d" % Game.GACHA_COST))
+	add_child(UI.title("ロッカーガチャ"))
 
 	# 排出率
-	var info := UI.panel(UI.PANEL, 12)
-	var iv := UI.vbox(6)
+	var info := UI.panel(UI.PANEL, 10)
+	var iv := UI.vbox(5)
+	iv.add_child(UI.label("通常ガチャの排出率", 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var r: Array = Game.save.debug.rates
 	var total := 0.0
 	for x in r:
@@ -37,20 +39,9 @@ func build() -> void:
 	info.add_child(iv)
 	add_child(info)
 
-	var pity := UI.panel(UI.PANEL, 12, UI.GOLD)
-	var pv := UI.vbox(4)
-	var ph := UI.hbox()
-	ph.add_child(UI.label("★3以上確定まで", 12, UI.SUB))
-	ph.add_child(UI.spacer())
-	ph.add_child(UI.label("あと %d 回" % Game.pity_left(), 14, UI.GOLD, HORIZONTAL_ALIGNMENT_RIGHT, true))
-	pv.add_child(ph)
-	pv.add_child(UI.bar(int(Game.save.pity), int(Game.save.debug.pity), UI.GOLD, 4))
-	pity.add_child(pv)
-	add_child(pity)
-
 	# 余りの売却
 	var sur := Game.surplus_total()
-	var sp := UI.panel(UI.PANEL, 12)
+	var sp := UI.panel(UI.PANEL, 10)
 	var sh := UI.hbox(8)
 	var sv := UI.vbox(0)
 	sv.add_child(UI.label("被りの余りを売却", 12, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
@@ -67,19 +58,45 @@ func build() -> void:
 	add_child(sp)
 
 	add_child(UI.spacer(true))
-	add_child(UI.label("被りはスキル強化の素材になる", 10, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
+
+	# 通常ガチャ
+	var np := UI.panel(UI.PANEL, 10, UI.CYAN)
+	var nv := UI.vbox(8)
+	var nh := UI.hbox(6)
+	nh.add_child(UI.label("通常ガチャ", 15, UI.CYAN, HORIZONTAL_ALIGNMENT_LEFT, true))
+	nh.add_child(UI.spacer())
+	nh.add_child(UI.label("★1〜★4", 11, UI.SUB))
+	nv.add_child(nh)
 	var btns := UI.hbox(10)
 	for n in [1, 10]:
-		var b := UI.button("%d回  ◆%d" % [n, Game.GACHA_COST * n], "pink" if n == 10 else "primary", 16, 56)
+		var b := UI.button("%d回  ◆%d" % [n, Game.gacha_cost(n)], "primary", 16, 48)
 		b.size_flags_horizontal = SIZE_EXPAND_FILL
 		b.disabled = not Game.can_pull(n)
-		b.pressed.connect(_pull.bind(n))
+		b.pressed.connect(_pull.bind(n, false))
 		btns.add_child(b)
-	add_child(btns)
+	nv.add_child(btns)
+	np.add_child(nv)
+	add_child(np)
+
+	# ★3以上確定ガチャ
+	var r3 := 100.0 * float(r[2]) / maxf(float(r[2]) + float(r[3]), 0.001)
+	var gp := UI.panel(UI.PANEL, 10, UI.GOLD)
+	var gv := UI.vbox(8)
+	var gh := UI.hbox(6)
+	gh.add_child(UI.label("★3以上確定ガチャ", 15, UI.GOLD, HORIZONTAL_ALIGNMENT_LEFT, true))
+	gh.add_child(UI.spacer())
+	gh.add_child(UI.label("★3 %d%% ／ ★4 %d%%" % [roundi(r3), 100 - roundi(r3)], 11, UI.SUB))
+	gv.add_child(gh)
+	var gb := UI.button("1回  ◆%d" % Game.gacha_cost(1, true), "gold", 16, 48)
+	gb.disabled = not Game.can_pull(1, true)
+	gb.pressed.connect(_pull.bind(1, true))
+	gv.add_child(gb)
+	gp.add_child(gv)
+	add_child(gp)
 
 
-func _pull(n: int) -> void:
-	var res := Game.pull(n)
+func _pull(n: int, rare: bool) -> void:
+	var res := Game.pull(n, rare)
 	if res.is_empty():
 		return
 	var ov := LockerReveal.new()

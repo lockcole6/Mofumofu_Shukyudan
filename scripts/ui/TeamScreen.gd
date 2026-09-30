@@ -46,11 +46,7 @@ func build() -> void:
 		head.add_child(bk)
 	head.add_child(UI.title("チーム編成"))
 	head.add_child(UI.spacer())
-	var n_combo: int = pw.mods.combos.size()
-	var cb := UI.button("連携 %d" % n_combo, "pink" if n_combo > 0 else "ghost", 11, 30)
-	cb.pressed.connect(_show_combos)
-	head.add_child(cb)
-	var auto := UI.button("おまかせ", "ghost", 12, 30)
+	var auto := UI.button("おまかせ編成", "lime", 12, 30)
 	auto.pressed.connect(_auto_menu)
 	head.add_child(auto)
 	add_child(head)
@@ -78,10 +74,23 @@ func build() -> void:
 	sp.add_child(sh)
 	add_child(sp)
 
+	# スキルの確認（個人スキル・連携スキル）
+	var sk := UI.hbox(6)
+	var b1 := UI.button("個人スキル", "cyan_line", 12, 30)
+	b1.size_flags_horizontal = SIZE_EXPAND_FILL
+	b1.pressed.connect(_show_skills)
+	sk.add_child(b1)
+	var n_combo: int = pw.mods.combos.size()
+	var b2 := UI.button("連携スキル %d発動中" % n_combo if n_combo > 0 else "連携スキル", "pink_line", 12, 30)
+	b2.size_flags_horizontal = SIZE_EXPAND_FILL
+	b2.pressed.connect(_show_combos)
+	sk.add_child(b2)
+	add_child(sk)
+
 	# ピッチ
 	var pitch = Pitch.new()
 	pitch.size_flags_vertical = SIZE_EXPAND_FILL
-	pitch.custom_minimum_size.y = 190
+	pitch.custom_minimum_size.y = 140
 	for p in entries:
 		var pp = PitchPlayer.new()
 		pp.setup(p.id, p.row)
@@ -105,7 +114,9 @@ func build() -> void:
 	elif entries.size() < Game.TEAM_SIZE:
 		hint = "あと%d人出場できます。控えからピッチへドラッグ" % (Game.TEAM_SIZE - entries.size())
 		hc = UI.CYAN
-	add_child(UI.label(hint, 10, hc, HORIZONTAL_ALIGNMENT_CENTER, true))
+	# 操作の説明はいつもは出さず、注意が必要なときだけ出す（ピッチを広く使うため）
+	if hc != UI.DIM:
+		add_child(UI.label(hint, 10, hc, HORIZONTAL_ALIGNMENT_CENTER, true))
 
 	# 控え
 	add_child(_bench_panel())
@@ -349,7 +360,48 @@ func _end_drag() -> void:
 	_drag = {}
 
 
-# ---------------------------------------------------------------- 連携スキル
+# ---------------------------------------------------------------- 個人スキル・連携スキル
+
+## 出場中の7体の固有スキル
+func _show_skills() -> void:
+	var entries := Game.formation_entries()
+	var v := UI.vbox(6)
+	v.add_child(UI.title("個人スキル", "出場中の選手の固有スキル"))
+	for row in Game.GRID_ROWS:
+		for p in entries:
+			if p.row != row:
+				continue
+			var c: Dictionary = Game.chars[p.id]
+			var h := UI.hbox(8)
+			var card = UI.card(p.id, false, [], Callable(), 34)
+			card.custom_minimum_size = Vector2(50, 50)
+			card.size_flags_vertical = SIZE_SHRINK_CENTER
+			h.add_child(card)
+			var sv := UI.vbox(1)
+			sv.size_flags_horizontal = SIZE_EXPAND_FILL
+			var nh := UI.hbox(6)
+			nh.add_child(UI.label(c.name, 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
+			nh.add_child(UI.label(UI.stars(c.rarity), 9, UI.GOLD))
+			sv.add_child(nh)
+			var sh := UI.hbox(6)
+			sh.add_child(UI.label(c.skill.name, 14, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+			sh.add_child(UI.tag("Lv%d" % p.slv, UI.CYAN, 9, false))
+			sv.add_child(sh)
+			sv.add_child(UI.wrap_label(Game.skill_text(p.id, p.slv), 11, UI.CYAN))
+			h.add_child(sv)
+			var pn := UI.panel(UI.PANEL2, 6, UI.ROW_COLORS[row])
+			pn.add_child(h)
+			UI.on_tap(pn, _detail.bind(p.id))
+			v.add_child(pn)
+	if entries.is_empty():
+		v.add_child(UI.label("出場中の選手がいません", 11, UI.DIM))
+	v.add_child(UI.label("タップで詳細", 10, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER))
+	var holder := {"m": null}
+	var cl := UI.button("とじる", "ghost", 13, 36)
+	cl.pressed.connect(func(): UI.close(holder.m))
+	v.add_child(cl)
+	holder.m = UI.modal(self, v)
+
 
 func _show_combos() -> void:
 	var entries := Game.formation_entries()

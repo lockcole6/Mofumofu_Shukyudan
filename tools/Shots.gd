@@ -63,7 +63,7 @@ func _ready() -> void:
 	# ガチャ
 	Game.save.stones = 5000
 	main.show_screen("ガチャ")
-	main.content.get_child(0)._pull(10)
+	main.content.get_child(0)._pull(10, false)
 	await get_tree().create_timer(0.1).timeout
 	await _shot("ガチャ_扉")
 	await get_tree().create_timer(1.5).timeout

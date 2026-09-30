@@ -34,6 +34,7 @@ const TACTIC_DESC := {
 }
 const TEAM_SIZE := 7
 const GACHA_COST := 10
+const GACHA_RARE_COST := 120   # ★3以上確定ガチャ（1回）
 const MAX_SLV := 5
 const SELL_VALUE := {1: 2, 2: 6, 3: 20, 4: 50}
 const PAGE_REWARD := 200
@@ -251,7 +252,7 @@ func _default_save() -> Dictionary:
 		"pages": {},
 		"record": {"wins": 0, "draws": 0, "losses": 0, "best": 5, "titles": 0},
 		"settings": {"speed": "normal", "bgm": 0.7, "sfx": 0.8},
-		"debug": {"rates": [60.0, 30.0, 8.0, 2.0], "pity": 50},
+		"debug": {"rates": [60.0, 30.0, 8.0, 2.0]},
 		"league": {},
 	}
 	for st in STARTERS:
@@ -382,34 +383,30 @@ func gacha_pool(rarity: int) -> Array:
 	return out
 
 
-func pity_left() -> int:
-	return int(save.debug.pity) - int(save.pity)
+func gacha_cost(n: int, rare := false) -> int:
+	return (GACHA_RARE_COST if rare else GACHA_COST) * n
 
 
-func can_pull(n: int) -> bool:
-	return int(save.stones) >= GACHA_COST * n
+func can_pull(n: int, rare := false) -> bool:
+	return int(save.stones) >= gacha_cost(n, rare)
 
 
-func pull(n: int) -> Array:
-	if not can_pull(n):
+## rare=true は★3以上確定ガチャ（★3と★4を、排出の重みの比で）
+func pull(n: int, rare := false) -> Array:
+	if not can_pull(n, rare):
 		return []
-	save.stones = int(save.stones) - GACHA_COST * n
+	save.stones = int(save.stones) - gacha_cost(n, rare)
 	var results := []
 	for i in n:
-		results.append(_pull_one())
+		results.append(_pull_one(rare))
 	save_game()
 	return results
 
 
-func _pull_one() -> Dictionary:
-	save.pity = int(save.pity) + 1
+func _pull_one(rare := false) -> Dictionary:
 	save.pulls = int(save.pulls) + 1
 	var rates: Array = save.debug.rates
-	var r := _weighted_rarity(rates, 1)
-	if r < 3 and int(save.pity) >= int(save.debug.pity):
-		r = _weighted_rarity(rates, 3)
-	if r >= 3:
-		save.pity = 0
+	var r := _weighted_rarity(rates, 3 if rare else 1)
 	var pool := gacha_pool(r)
 	while pool.is_empty() and r > 1:
 		r -= 1

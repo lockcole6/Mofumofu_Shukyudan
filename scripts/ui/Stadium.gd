@@ -7,7 +7,7 @@ extends Control
 const UI = preload("res://scripts/ui/UI.gd")
 const Sprites = preload("res://scripts/ui/Sprites.gd")
 const COL_X := {"GK": 0.05, "守": 0.17, "中": 0.3, "攻": 0.43}   # 自分側。相手は左右反転
-const TOP_H := 104.0
+const TOP_H := 98.0
 
 var names := ["", ""]
 var ranks := ["", ""]      # 例 "3位"
@@ -20,7 +20,7 @@ var _crowd := []
 
 
 func _ready() -> void:
-	custom_minimum_size.y = 250
+	custom_minimum_size.y = 228
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var r := RandomNumberGenerator.new()
 	r.seed = 5

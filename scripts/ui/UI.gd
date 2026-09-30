@@ -121,6 +121,20 @@ static func style_button(b: Button, kind: String) -> void:
 			bg = Color(CYAN, 0.16)
 			fg = CYAN
 			border = CYAN
+		"lime":
+			bg = LIME
+			fg = BG
+		"gold":
+			bg = GOLD
+			fg = BG
+		"pink_line":
+			bg = Color(PINK, 0.14)
+			fg = PINK
+			border = PINK
+		"cyan_line":
+			bg = Color(CYAN, 0.1)
+			fg = CYAN
+			border = Color(CYAN, 0.7)
 	for st in ["normal", "hover", "pressed", "disabled"]:
 		var c := bg
 		match st:
@@ -180,8 +194,7 @@ static func preset_bar(on_change: Callable) -> HBoxContainer:
 				rename.call()
 			else:
 				Game.select_preset(i)
-				on_change.call()
-				Game.toast.emit("%s に切り替えました（もう一度タップで名前を変更）" % Game.preset_title(i)), rename)
+				on_change.call(), rename)
 		h.add_child(p)
 	return h
 

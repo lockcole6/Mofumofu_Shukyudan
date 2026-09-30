@@ -29,7 +29,7 @@ func show_league() -> void:
 	UI.clear(self)
 	var L: Dictionary = Game.save.league
 	var order := Game.standings()
-	var body := UI.vbox(8)
+	var body := UI.vbox(6)
 
 	# 見出し（右上に順位表）
 	var head := UI.hbox(6)
@@ -119,18 +119,18 @@ func show_league() -> void:
 
 	# 編成・相手の編成へのリンク
 	var links := UI.hbox(8)
-	var l_team := UI.button("自分の編成を変える", "ghost", 12, 34)
+	var l_team := UI.button("自分の編成を変える", "ghost", 12, 30)
 	l_team.size_flags_horizontal = SIZE_EXPAND_FILL
 	l_team.pressed.connect(_goto_team)
 	links.add_child(l_team)
-	var l_opp := UI.button("相手の編成を見る", "ghost", 12, 34)
+	var l_opp := UI.button("相手の編成を見る", "ghost", 12, 30)
 	l_opp.size_flags_horizontal = SIZE_EXPAND_FILL
 	l_opp.pressed.connect(_show_opp_formation.bind(opp_i, opp))
 	links.add_child(l_opp)
 	body.add_child(links)
 	add_child(UI.scroll(body))
 
-	var go := UI.icon_button("キックオフ", "ball", "pink", 18, 50)
+	var go := UI.icon_button("キックオフ", "ball", "pink", 18, 46)
 	go.set_meta("sfx", "")
 	var cost := Game.formation_cost()
 	if mine.size() < Game.TEAM_SIZE or cost > Game.cost_cap():
