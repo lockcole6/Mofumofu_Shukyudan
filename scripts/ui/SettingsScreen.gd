@@ -52,12 +52,6 @@ func build() -> void:
 	rp.add_child(rv)
 	v.add_child(rp)
 
-	var tut := UI.button("チュートリアルをもう一度見る", "ghost", 13, 38)
-	tut.pressed.connect(func():
-		var m := _main()
-		if m:
-			m.start_tutorial())
-	v.add_child(tut)
 	if Game.save.cleared:
 		var ed := UI.button("エンディングをもう一度見る", "gold", 13, 38)
 		ed.pressed.connect(func():

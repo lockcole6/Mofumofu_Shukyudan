@@ -410,14 +410,14 @@ func _show_skills() -> void:
 	holder.m = UI.modal(self, v)
 
 
-## 連携スキルを全部表示する。発動中 → あと1人 → それ以外 の順
+## 編成に入っている選手が関わる連携スキルを表示する。発動中 → あと1人 → それ以外 の順
 func _show_combos() -> void:
 	var entries := Game.formation_entries()
 	var ids := entries.map(func(p): return p.id)
 	var v := UI.vbox(6)
 	var n_on := Game.active_combos(entries).size()
-	v.add_child(UI.title("連携スキル", "発動中 %d / %d" % [n_on, Game.combos.size()]))
-	var list := Game.combos.duplicate()
+	var list := Game.combos.filter(func(cb): return cb.ids.any(func(i): return i in ids))
+	v.add_child(UI.title("連携スキル", "発動中 %d ／ 編成メンバーが関わる %d" % [n_on, list.size()]))
 	list.sort_custom(func(a, b):
 		var ma: int = a.ids.filter(func(i): return not i in ids).size()
 		var mb: int = b.ids.filter(func(i): return not i in ids).size()
@@ -456,6 +456,8 @@ func _show_combos() -> void:
 		cv.add_child(UI.label(Game.combo_text(cb), 11, UI.PINK if on else UI.SUB))
 		pn.add_child(cv)
 		v.add_child(pn)
+	if list.is_empty():
+		v.add_child(UI.label("編成メンバーが関わる連携スキルはありません。組み合わせは各キャラの詳細で見られます", 10, UI.DIM))
 	var holder := {"m": null}
 	var cl := UI.button("とじる", "ghost", 13, 36)
 	cl.pressed.connect(func(): UI.close(holder.m))
