@@ -25,19 +25,33 @@ func _ready() -> void:
 	await _frames()
 	print("tap 編成: tab=", main.current, " step=", tut.step)
 	await _shot("t2")
-	# おまかせ編成 → バランス
+	# 控えからピッチへドラッグして7体並べる（帯が控えに重なっていないこと）
 	var ts = main.content.get_child(0)
-	ts._auto("バランス")
-	await _frames()
-	print("after auto: team=", Game.save.formation.size(), " step=", tut.step)
+	print("bench rect=", ts._bench.get_global_rect(), " box rect=", tut._box.get_global_rect(),
+		" overlap=", ts._bench.get_global_rect().intersects(tut._box.get_global_rect()))
+	for n in 7:
+		ts = main.content.get_child(0)
+		var card: Control = null
+		for c in ts._bench.find_children("*", "MarginContainer", true, false):
+			if "cid" in c:
+				card = c
+				break
+		var pr: Rect2 = ts._pitch.get_global_rect()
+		var row_v: float = [0.86, 0.63, 0.63, 0.39, 0.39, 0.13, 0.13][n]
+		await _drag(card.get_global_rect().get_center(), Vector2(pr.position.x + 14, pr.position.y + pr.size.y * row_v))
+	print("after drag x7: team=", Game.save.formation.size(), " step=", tut.step)
+	await _shot("t3")
 	_tap(Vector2(180, 320))
 	await _frames()
 	_tap(main.tab_buttons["試合"].get_global_rect().get_center())
 	await _frames()
 	print("tap 試合: tab=", main.current, " step=", tut.step)
 	await _shot("t5")
-	var r: Rect2 = tut._kickoff_rect()
-	_tap(r.get_center())
+	var kick: Button = null
+	for b in main.content.find_children("*", "Button", true, false):
+		if b.find_children("*", "Label", true, false).any(func(l): return l.text == "キックオフ"):
+			kick = b
+	_tap(kick.get_global_rect().get_center())
 	await get_tree().create_timer(1.0).timeout
 	print("after kickoff: round=", Game.save.league.round, " step=", tut.step)
 	await _shot("t6")
@@ -95,3 +109,25 @@ func _tap(p: Vector2) -> void:
 		e.position = p
 		e.global_position = p
 		get_viewport().push_input(e, true)
+
+
+func _drag(from: Vector2, to: Vector2) -> void:
+	_mouse(from, true)
+	for i in 12:
+		var e := InputEventMouseMotion.new()
+		e.position = from.lerp(to, (i + 1) / 12.0)
+		e.global_position = e.position
+		e.button_mask = MOUSE_BUTTON_MASK_LEFT
+		get_viewport().push_input(e, true)
+		await get_tree().process_frame
+	_mouse(to, false)
+	await _frames()
+
+
+func _mouse(p: Vector2, pressed: bool) -> void:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = pressed
+	e.position = p
+	e.global_position = p
+	get_viewport().push_input(e, true)
