@@ -9,12 +9,14 @@ const Stadium = preload("res://scripts/ui/Stadium.gd")
 const Pitch = preload("res://scripts/ui/Pitch.gd")
 const PitchPlayer = preload("res://scripts/ui/PitchPlayer.gd")
 ## 試合の演出にかける秒数（設定の表示速度）
-const MATCH_SECONDS := {"normal": 12.0, "fast": 5.0, "instant": 0.0}
+const MATCH_SECONDS := {"slow": 18.0, "normal": 12.0, "fast": 6.0, "instant": 0.0}   # instant は開発用
 const ZONE_COLORS := {"up": Color("3ddc97"), "champion": Color("ffc83d"), "down": Color("ff4d6d"), "": Color(0, 0, 0, 0)}
 
 var result := {}
 var scouted := false
 var pick_i := -1   # スカウト候補として選んでいる相手の番号
+var mode := "リーグ戦"   # リーグ戦 / フリーマッチ
+var free_div := 0        # フリーマッチの相手の強さ（部）
 var _view := 0   # 画面を切り替えるたびに増やす。試合の演出が古い画面に書き込まないように
 
 
@@ -27,6 +29,15 @@ func show_league() -> void:
 	Sound.bgm("menu")
 	_view += 1
 	UI.clear(self)
+	var mb := UI.segmented(["リーグ戦", "フリーマッチ"], mode, func(m):
+		mode = m
+		show_league(), 13)
+	for b in mb.get_children():
+		b.custom_minimum_size.y = 30
+	add_child(mb)
+	if mode == "フリーマッチ":
+		_show_free()
+		return
 	var L: Dictionary = Game.save.league
 	var order := Game.standings()
 	var body := UI.vbox(6)
@@ -84,10 +95,91 @@ func show_league() -> void:
 	st.on_player_tap = func(id, _side): CharDetail.open(self, id, {"readonly": true})
 	st.on_crest_tap = func(side):
 		if side == 1:
-			_show_opp_formation(opp_i, opp)
+			_show_opp_formation(L.teams[opp_i].name, opp)
 		else:
 			_goto_team()
 	nv.add_child(st)
+	nv.add_child(_power_bars(mine, opp))
+	np.add_child(nv)
+	body.add_child(np)
+
+	# 編成プリセットの切り替え（試合前に変えられる）
+	body.add_child(UI.preset_bar(show_league))
+
+	# 編成・相手の編成へのリンク
+	var links := UI.hbox(8)
+	var l_team := UI.button("自分の編成を変える", "ghost", 12, 30)
+	l_team.size_flags_horizontal = SIZE_EXPAND_FILL
+	l_team.pressed.connect(_goto_team)
+	links.add_child(l_team)
+	var l_opp := UI.button("相手の編成を見る", "ghost", 12, 30)
+	l_opp.size_flags_horizontal = SIZE_EXPAND_FILL
+	l_opp.pressed.connect(_show_opp_formation.bind(L.teams[opp_i].name, opp))
+	links.add_child(l_opp)
+	body.add_child(links)
+	add_child(UI.scroll(body))
+
+	add_child(_kickoff_button(mine, false))
+
+
+## フリーマッチ：強さ（5部〜1部）を選んで、順位に関係なく戦う
+func _show_free() -> void:
+	if free_div == 0:
+		free_div = Game.division()
+	var body := UI.vbox(6)
+	body.add_child(UI.title("フリーマッチ", "順位に関係なし・勝てばスカウトできる"))
+	var divs := ["5部", "4部", "3部", "2部", "1部"]
+	body.add_child(UI.segmented(divs, "%d部" % free_div, func(d):
+		free_div = int(d.substr(0, 1))
+		Game.free_opponent(free_div, true)
+		show_league(), 12))
+	var fo := Game.free_opponent(free_div)
+	var opp := Game.free_lineup()
+	var mine := Game.formation_entries()
+	var np := UI.panel(UI.PANEL, 8, UI.GOLD)
+	var nsb: StyleBoxFlat = np.get_theme_stylebox("panel")
+	nsb.set_border_width_all(1)
+	nsb.border_color = Color(UI.GOLD, 0.7)
+	var nv := UI.vbox(6)
+	var nh := UI.hbox(6)
+	nh.add_child(UI.label("FREE MATCH", 12, UI.GOLD, HORIZONTAL_ALIGNMENT_LEFT, true))
+	nh.add_child(UI.spacer())
+	nh.add_child(UI.label("%s  vs  %s" % [Game.formation_name(mine), Game.formation_name(opp)], 11, UI.SUB, HORIZONTAL_ALIGNMENT_RIGHT, true))
+	nv.add_child(nh)
+	var st = Stadium.new()
+	st.names = ["もふもふ蹴球団", fo.name]
+	st.ranks = ["%d部" % Game.division(), "%d部相当" % free_div]
+	st.records = ["", ""]
+	st.teams = [mine, opp]
+	st.on_player_tap = func(id, _side): CharDetail.open(self, id, {"readonly": true})
+	st.on_crest_tap = func(side):
+		if side == 1:
+			_show_opp_formation(fo.name, opp)
+		else:
+			_goto_team()
+	nv.add_child(st)
+	nv.add_child(_power_bars(mine, opp))
+	np.add_child(nv)
+	body.add_child(np)
+	body.add_child(UI.preset_bar(show_league))
+	var links := UI.hbox(8)
+	var re := UI.button("相手を変える", "ghost", 12, 30)
+	re.size_flags_horizontal = SIZE_EXPAND_FILL
+	re.pressed.connect(func():
+		Game.free_opponent(free_div, true)
+		show_league())
+	links.add_child(re)
+	var l_team := UI.button("自分の編成を変える", "ghost", 12, 30)
+	l_team.size_flags_horizontal = SIZE_EXPAND_FILL
+	l_team.pressed.connect(_goto_team)
+	links.add_child(l_team)
+	body.add_child(links)
+	add_child(UI.scroll(body))
+	add_child(_kickoff_button(mine, true))
+
+
+func _power_bars(mine: Array, opp: Array) -> VBoxContainer:
+	var v := UI.vbox(6)
 	var a := Game.team_power(mine)
 	var b := Game.team_power(opp)
 	for s in [["攻撃", "atk", UI.ROW_COLORS["攻"]], ["守備", "def", UI.ROW_COLORS["守"]]]:
@@ -110,26 +202,11 @@ func show_league() -> void:
 		var l2 := UI.label(str(int(ov)), 13, UI.PINK, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l2.custom_minimum_size.x = 30
 		row.add_child(l2)
-		nv.add_child(row)
-	np.add_child(nv)
-	body.add_child(np)
+		v.add_child(row)
+	return v
 
-	# 編成プリセットの切り替え（試合前に変えられる）
-	body.add_child(UI.preset_bar(show_league))
 
-	# 編成・相手の編成へのリンク
-	var links := UI.hbox(8)
-	var l_team := UI.button("自分の編成を変える", "ghost", 12, 30)
-	l_team.size_flags_horizontal = SIZE_EXPAND_FILL
-	l_team.pressed.connect(_goto_team)
-	links.add_child(l_team)
-	var l_opp := UI.button("相手の編成を見る", "ghost", 12, 30)
-	l_opp.size_flags_horizontal = SIZE_EXPAND_FILL
-	l_opp.pressed.connect(_show_opp_formation.bind(opp_i, opp))
-	links.add_child(l_opp)
-	body.add_child(links)
-	add_child(UI.scroll(body))
-
+func _kickoff_button(mine: Array, free: bool) -> Button:
 	var go := UI.icon_button("キックオフ", "ball", "pink", 18, 46)
 	go.set_meta("sfx", "")
 	var cost := Game.formation_cost()
@@ -138,8 +215,27 @@ func show_league() -> void:
 		var msg := "編成で7体を並べてね" if mine.size() < Game.TEAM_SIZE else "コスト上限オーバー（%d/%d）" % [cost, Game.cost_cap()]
 		go.get_child(0).get_child(1).text = msg
 		go.get_child(0).get_child(1).add_theme_font_size_override("font_size", 14)
-	go.pressed.connect(_kickoff)
-	add_child(go)
+	go.pressed.connect(_kickoff.bind(free))
+	return go
+
+
+func _main() -> Node:
+	var m := get_parent()
+	while m and not m.has_method("show_screen"):
+		m = m.get_parent()
+	return m
+
+
+## 試合中は下のタブと戻る操作を止める（途中で抜けられないように）
+func _lock(v: bool) -> void:
+	Nav.locked = v
+	var m := _main()
+	if m:
+		m.set_tabs_locked(v)
+
+
+func _unlock() -> void:
+	_lock(false)
 
 
 func _goto_team() -> void:
@@ -152,11 +248,10 @@ func _goto_team() -> void:
 
 
 ## 相手の編成を、編成画面と同じピッチで見せる
-func _show_opp_formation(opp_i: int, opp: Array) -> void:
-	var L: Dictionary = Game.save.league
+func _show_opp_formation(opp_name: String, opp: Array) -> void:
 	var v := UI.vbox(8)
 	var pw := Game.team_power(opp)
-	v.add_child(UI.title(L.teams[opp_i].name, "%s ・ 攻撃%d ・ 守備%d" % [Game.formation_name(opp), pw.atk, pw.def]))
+	v.add_child(UI.title(opp_name, "%s ・ 攻撃%d ・ 守備%d" % [Game.formation_name(opp), pw.atk, pw.def]))
 	var pitch = Pitch.new()
 	pitch.lineup = opp
 	pitch.custom_minimum_size.y = 330
@@ -220,15 +315,17 @@ func _table(order: Array, T: Array) -> PanelContainer:
 	return p
 
 
-func _kickoff() -> void:
-	var L: Dictionary = Game.save.league
-	result = Game.play_round()
+func _kickoff(free := false) -> void:
+	result = Game.play_free() if free else Game.play_round()
 	scouted = false
 	pick_i = -1
 	_view += 1
 	var view := _view
 	UI.clear(self)
 	Nav.push(self, show_league)
+	_lock(true)
+	if not tree_exiting.is_connected(_unlock):
+		tree_exiting.connect(_unlock)   # 試合中に画面ごと消えたときもロックを外す
 	Sound.bgm("match")
 	Sound.play("whistle")
 
@@ -238,7 +335,7 @@ func _kickoff() -> void:
 	var bv := UI.vbox(2)
 	var names := UI.hbox()
 	var n1 := UI.label("もふもふ蹴球団", 11, UI.CYAN, HORIZONTAL_ALIGNMENT_CENTER, true)
-	var n2 := UI.label(L.teams[result.opp_i].name, 11, UI.PINK, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var n2 := UI.label(result.opp_name, 11, UI.PINK, HORIZONTAL_ALIGNMENT_CENTER, true)
 	n1.size_flags_horizontal = SIZE_EXPAND_FILL
 	n2.size_flags_horizontal = SIZE_EXPAND_FILL
 	names.add_child(n1)
@@ -259,13 +356,10 @@ func _kickoff() -> void:
 	court.setup(Game.formation_entries(), result.opp)
 	court.set_plan(result.events)
 	add_child(court)
-	var skip := UI.button("結果までとばす", "ghost", 12, 32)
-	add_child(skip)
 
 	# 試合時計を進めて、その時刻になったイベントを流す
 	var dur: float = MATCH_SECONDS.get(Game.save.settings.speed, 12.0)
-	var state := {"skip": dur <= 0.0}
-	skip.pressed.connect(func(): state.skip = true)
+	var state := {"skip": dur <= 0.0}   # 開発用の instant のときだけ一気に進める
 	var g := [0, 0]
 	var minute := 0.0
 	var events: Array = result.events.duplicate()
@@ -317,7 +411,7 @@ func _kickoff() -> void:
 	Sound.bgm("menu")
 	score.text = "%d - %d" % result.goals
 	clock.text = "FULL TIME"
-	skip.queue_free()
+	_lock(false)
 	if result.events.is_empty():
 		feed.add_child(UI.label("静かな試合だった…", 12, UI.SUB, HORIZONTAL_ALIGNMENT_CENTER))
 	_show_result()
@@ -390,7 +484,7 @@ func _show_result() -> void:
 	rv.add_child(others)
 	p.add_child(rv)
 	add_child(p)
-	var nx := UI.button("順位表へ", "primary", 15, 42)
+	var nx := UI.button("フリーマッチへ" if result.get("free", false) else "順位表へ", "primary", 15, 42)
 	nx.pressed.connect(func(): Nav.close(self))
 	add_child(nx)
 

@@ -16,6 +16,7 @@ var stones_label: Label
 var div_label: Label
 var tab_buttons := {}
 var tab_parts := {}      # タブ -> [アイコン, ラベル]
+var tabs_locked := false
 var toast_box: VBoxContainer
 var current := ""
 
@@ -125,6 +126,14 @@ func _ready() -> void:
 	show_screen("試合", false)
 
 
+## 試合中などに下のタブを押せないようにする
+func set_tabs_locked(v: bool) -> void:
+	tabs_locked = v
+	for k in tab_buttons:
+		tab_buttons[k].disabled = v
+		tab_buttons[k].modulate.a = 0.4 if v else 1.0
+
+
 func _refresh_top() -> void:
 	stones_label.text = str(Game.save.stones)
 	div_label.text = "%d部" % Game.division()
@@ -133,7 +142,7 @@ func _refresh_top() -> void:
 ## record=true のときは「戻る」で前のタブに戻れるようにする
 ## with_back=true なら、開いた画面に「前のタブに戻る」ボタンを出してもらう（back_to を渡す）
 func show_screen(tab: String, record := true, with_back := false) -> void:
-	if tab == current:
+	if tab == current or tabs_locked:
 		return
 	var from := current
 	if record and current != "":

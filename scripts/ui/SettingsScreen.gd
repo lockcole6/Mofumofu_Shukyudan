@@ -2,7 +2,7 @@ extends VBoxContainer
 ## 設定：試合の表示速度、データ、デバッグ（排出率・ガチャ石・ディビジョンなど）
 
 const UI = preload("res://scripts/ui/UI.gd")
-const SPEEDS := [["normal", "ふつう"], ["fast", "はやい"], ["instant", "結果だけ"]]
+const SPEEDS := [["slow", "おそい"], ["normal", "ふつう"], ["fast", "はやい"]]
 
 var debug_open := false
 

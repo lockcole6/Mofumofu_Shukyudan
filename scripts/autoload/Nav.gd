@@ -7,6 +7,7 @@ signal changed
 var _stack := []        # [{owner: Node, cb: Callable}]
 var _ignore_pop := 0    # こちらから history.back() した分の popstate を無視する
 var _js_cb              # JavaScriptBridge のコールバック（参照を保持しておく必要がある）
+var locked := false     # true の間は戻る操作を受け付けない（試合中など）
 
 
 func _ready() -> void:
@@ -40,6 +41,8 @@ func close(owner: Node) -> void:
 
 
 func back() -> bool:
+	if locked:
+		return false
 	_prune()
 	if _stack.is_empty():
 		return false
@@ -69,6 +72,10 @@ func _browser_back() -> void:
 func _on_popstate(_args) -> void:
 	if _ignore_pop > 0:
 		_ignore_pop -= 1
+		return
+	if locked:
+		# ブラウザの戻るで履歴が1つ減ったので、積み直してその場にとどまる
+		JavaScriptBridge.eval("history.pushState({mofu: 'lock'}, '')", true)
 		return
 	_prune()
 	if _stack.is_empty():

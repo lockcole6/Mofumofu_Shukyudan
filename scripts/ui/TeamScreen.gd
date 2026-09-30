@@ -362,78 +362,100 @@ func _end_drag() -> void:
 
 # ---------------------------------------------------------------- 個人スキル・連携スキル
 
-## 出場中の7体の固有スキル
+## 出場中の7体の固有スキル。詳細でスキルを強化したら、この一覧もその場で更新する
 func _show_skills() -> void:
-	var entries := Game.formation_entries()
 	var v := UI.vbox(6)
-	v.add_child(UI.title("個人スキル", "出場中の選手の固有スキル"))
-	for row in Game.GRID_ROWS:
-		for p in entries:
-			if p.row != row:
-				continue
-			var c: Dictionary = Game.chars[p.id]
-			var h := UI.hbox(8)
-			var card = UI.card(p.id, false, [], Callable(), 34)
-			card.custom_minimum_size = Vector2(50, 50)
-			card.size_flags_vertical = SIZE_SHRINK_CENTER
-			h.add_child(card)
-			var sv := UI.vbox(1)
-			sv.size_flags_horizontal = SIZE_EXPAND_FILL
-			var nh := UI.hbox(6)
-			nh.add_child(UI.label(c.name, 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
-			nh.add_child(UI.label(UI.stars(c.rarity), 9, UI.GOLD))
-			sv.add_child(nh)
-			var sh := UI.hbox(6)
-			sh.add_child(UI.label(c.skill.name, 14, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
-			sh.add_child(UI.tag("Lv%d" % p.slv, UI.CYAN, 9, false))
-			sv.add_child(sh)
-			sv.add_child(UI.wrap_label(Game.skill_text(p.id, p.slv), 11, UI.CYAN))
-			h.add_child(sv)
-			var pn := UI.panel(UI.PANEL2, 6, UI.ROW_COLORS[row])
-			pn.add_child(h)
-			UI.on_tap(pn, _detail.bind(p.id))
-			v.add_child(pn)
-	if entries.is_empty():
-		v.add_child(UI.label("出場中の選手がいません", 11, UI.DIM))
-	v.add_child(UI.label("タップで詳細", 10, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER))
-	var holder := {"m": null}
-	var cl := UI.button("とじる", "ghost", 13, 36)
-	cl.pressed.connect(func(): UI.close(holder.m))
-	v.add_child(cl)
+	var holder := {"m": null, "fill": Callable()}
+	holder.fill = func():
+		UI.clear(v)
+		var entries := Game.formation_entries()
+		v.add_child(UI.title("個人スキル", "出場中の選手の固有スキル"))
+		for row in Game.GRID_ROWS:
+			for p in entries:
+				if p.row != row:
+					continue
+				var c: Dictionary = Game.chars[p.id]
+				var h := UI.hbox(8)
+				var card = UI.card(p.id, false, [], Callable(), 34)
+				card.custom_minimum_size = Vector2(50, 50)
+				card.size_flags_vertical = SIZE_SHRINK_CENTER
+				h.add_child(card)
+				var sv := UI.vbox(1)
+				sv.size_flags_horizontal = SIZE_EXPAND_FILL
+				var nh := UI.hbox(6)
+				nh.add_child(UI.label(c.name, 11, UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
+				nh.add_child(UI.label(UI.stars(c.rarity), 9, UI.GOLD))
+				sv.add_child(nh)
+				var sh := UI.hbox(6)
+				sh.add_child(UI.label(c.skill.name, 14, UI.INK, HORIZONTAL_ALIGNMENT_LEFT, true))
+				sh.add_child(UI.tag("Lv%d" % p.slv, UI.CYAN, 9, false))
+				if Game.can_skill_up(p.id):
+					sh.add_child(UI.tag("強化できる", UI.LIME, 9))
+				sv.add_child(sh)
+				sv.add_child(UI.wrap_label(Game.skill_text(p.id, p.slv), 11, UI.CYAN))
+				h.add_child(sv)
+				var pn := UI.panel(UI.PANEL2, 6, UI.ROW_COLORS[row])
+				pn.add_child(h)
+				UI.on_tap(pn, func(): CharDetail.open(self, p.id, {"team": true, "on_change": func():
+					holder.fill.call()
+					build()}))
+				v.add_child(pn)
+		if entries.is_empty():
+			v.add_child(UI.label("出場中の選手がいません", 11, UI.DIM))
+		v.add_child(UI.label("タップで詳細（スキル強化もここから）", 10, UI.DIM, HORIZONTAL_ALIGNMENT_CENTER))
+		var cl := UI.button("とじる", "ghost", 13, 36)
+		cl.pressed.connect(func(): UI.close(holder.m))
+		v.add_child(cl)
+	holder.fill.call()
 	holder.m = UI.modal(self, v)
 
 
+## 連携スキルを全部表示する。発動中 → あと1人 → それ以外 の順
 func _show_combos() -> void:
 	var entries := Game.formation_entries()
-	var v := UI.vbox(6)
-	v.add_child(UI.title("連携スキル", "発動中と、あと1人で発動するもの"))
 	var ids := entries.map(func(p): return p.id)
-	var shown := 0
-	for cb in Game.combos:
+	var v := UI.vbox(6)
+	var n_on := Game.active_combos(entries).size()
+	v.add_child(UI.title("連携スキル", "発動中 %d / %d" % [n_on, Game.combos.size()]))
+	var list := Game.combos.duplicate()
+	list.sort_custom(func(a, b):
+		var ma: int = a.ids.filter(func(i): return not i in ids).size()
+		var mb: int = b.ids.filter(func(i): return not i in ids).size()
+		return ma < mb)
+	for cb in list:
 		var missing: Array = cb.ids.filter(func(i): return not i in ids)
-		if missing.size() > 1 or (missing.size() == 1 and not Game.owned(missing[0])):
-			continue
-		shown += 1
+		var unowned: Array = cb.ids.filter(func(i): return not Game.owned(i))
 		var on := missing.is_empty()
+		var st := ""
+		var sc := UI.SUB
+		if on:
+			st = "発動中"
+			sc = UI.PINK
+		elif not unowned.is_empty():
+			st = "未入手 %d体" % unowned.size()
+			sc = UI.DIM
+		elif missing.size() == 1:
+			st = "あと%s" % Game.chars[missing[0]].name
+			sc = UI.CYAN
+		else:
+			st = "あと%d体" % missing.size()
 		var pn := UI.panel(UI.PANEL2, 8, UI.PINK if on else UI.LINE)
 		var cv := UI.vbox(3)
 		var ch := UI.hbox(6)
 		ch.add_child(UI.label(cb.name, 13, UI.INK if on else UI.SUB, HORIZONTAL_ALIGNMENT_LEFT, true))
 		ch.add_child(UI.spacer())
-		ch.add_child(UI.tag("発動中" if on else "あと%sで発動" % Game.chars[missing[0]].name, UI.PINK if on else UI.SUB, 9, on))
+		ch.add_child(UI.tag(st, sc, 9, on))
 		cv.add_child(ch)
 		var mh := UI.hbox(2)
 		for mid in cb.ids:
-			var ic := UI.icon(Game.chars[mid], false, 26)
+			var ic := UI.icon(Game.chars[mid], not Game.owned(mid), 26)
 			if mid in missing:
-				ic.modulate.a = 0.35
+				ic.modulate.a = 0.45
 			mh.add_child(ic)
 		cv.add_child(mh)
 		cv.add_child(UI.label(Game.combo_text(cb), 11, UI.PINK if on else UI.SUB))
 		pn.add_child(cv)
 		v.add_child(pn)
-	if shown == 0:
-		v.add_child(UI.label("発動中の連携はありません。組み合わせは各キャラの詳細で見られます", 10, UI.DIM))
 	var holder := {"m": null}
 	var cl := UI.button("とじる", "ghost", 13, 36)
 	cl.pressed.connect(func(): UI.close(holder.m))

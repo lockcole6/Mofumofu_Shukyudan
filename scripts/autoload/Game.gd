@@ -71,7 +71,8 @@ const SKILL_DESC := {
 var chars := {}          # id -> キャラデータ
 var combos := []
 var save := {}
-var _lineup_cache := {}  # "season_round_team" -> 出場メンバー
+var _lineup_cache := {}
+var free_opp := {}       # フリーマッチの相手 {div, name, members}（セーブしない）  # "season_round_team" -> 出場メンバー
 
 
 func _ready() -> void:
@@ -291,6 +292,8 @@ func load_game() -> void:
 		save.presets = [save.formation.duplicate(true)]
 		for i in PRESET_COUNT - 1:
 			save.presets.append([])
+	if save.settings.get("speed", "normal") not in ["slow", "normal", "fast"]:
+		save.settings.speed = "fast"   # 「結果だけ」はなくした
 	if save.get("preset_names", []).size() != PRESET_COUNT:
 		save.preset_names = _default_preset_names()
 	if save.league.is_empty():
@@ -952,7 +955,42 @@ func play_round() -> Dictionary:
 	res.reward = reward
 	res.opp_i = opp_i
 	res.opp = opp
+	res.opp_name = L.teams[opp_i].name
 	res.others = others
+	return res
+
+
+# ---------------------------------------------------------------- フリーマッチ
+## 順位に関係なく、好きな強さ（5部〜1部）の相手と戦う。勝てばスカウトでき、ガチャ石も少しもらえる
+
+func free_opponent(div: int, refresh := false) -> Dictionary:
+	if refresh or free_opp.is_empty() or int(free_opp.div) != div:
+		free_opp = {"div": div, "name": TEAM_NAMES.pick_random(), "members": _make_ai_members(div)}
+	return free_opp
+
+
+func free_lineup() -> Array:
+	var div: int = free_opp.div
+	return free_opp.members.map(func(m): return {"id": int(m.id), "row": m.row,
+		"slv": 2 if div == 1 else 1, "boost": DIV_BOOST[div]})
+
+
+func play_free() -> Dictionary:
+	var opp := free_lineup()
+	var div: int = free_opp.div
+	var res := simulate(formation_entries(), opp, "バランス", TACTICS.pick_random())
+	var reward := 0
+	match res.outcome:
+		"win": reward = 5 + (5 - div) * 3
+		"draw": reward = 2
+	save.stones = int(save.stones) + reward
+	save_game()
+	res.reward = reward
+	res.opp = opp
+	res.opp_name = free_opp.name
+	res.others = []
+	res.free = true
+	free_opp = {}   # 次は新しい相手
 	return res
 
 

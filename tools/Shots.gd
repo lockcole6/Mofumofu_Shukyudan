@@ -25,7 +25,7 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await _shot("試合")
 	var ms0 = main.content.get_child(0)
-	ms0._show_opp_formation(Game.opponent_index(), Game.lineup(Game.opponent_index()))
+	ms0._show_opp_formation("相手", Game.lineup(Game.opponent_index()))
 	await _shot("試合_相手の編成")
 	_close_modals(main)
 	for tab in ["編成", "図鑑", "ガチャ", "設定"]:
