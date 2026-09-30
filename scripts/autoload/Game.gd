@@ -572,7 +572,7 @@ func place_starters() -> void:
 	save_game()
 
 
-## プリセットを切り替える。空のプリセットは、いまの編成をコピーして始める
+## プリセットを切り替える。空のプリセットは、誰も並んでいない状態から始める
 func select_preset(i: int) -> void:
 	if i == int(save.preset):
 		return
@@ -580,7 +580,7 @@ func select_preset(i: int) -> void:
 	save.preset = i
 	var p: Array = save.presets[i]
 	if p.is_empty():
-		save.presets[i] = save.formation.duplicate(true)
+		save.formation = []
 	else:
 		var out := []
 		for f in p:

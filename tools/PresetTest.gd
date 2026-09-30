@@ -57,7 +57,7 @@ func _ready() -> void:
 	Game.auto_formation("バランス")
 	var p1 := Game.formation_name()
 	Game.select_preset(1)
-	print("preset2 starts as copy: ", Game.formation_name() == p1, " ", Game.formation_name())
+	print("preset2 starts empty: ", Game.save.formation.is_empty(), " ", Game.formation_name())
 	Game.auto_formation("攻撃型")
 	Game.select_preset(0)
 	print("back to preset1: ", Game.formation_name(), "  names=", range(5).map(func(i): return Game.preset_name(i)))
